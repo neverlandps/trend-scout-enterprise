@@ -9,6 +9,9 @@ from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.core.database import SessionLocal
 from trend_scout_enterprise.models.models import Report
 from trend_scout_enterprise.services.report_service import generate_pdf_report
+from trend_scout_enterprise.services.analysis_service import summarize_trends
+from trend_scout_enterprise.services.llm_service import LlmService
+from trend_scout_enterprise.workers.scan_worker import _get_default_llm_service
 
 celery_app = Celery(
     "trend_scout_enterprise",
@@ -23,19 +26,25 @@ def _get_db() -> Session:
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
 def generate_report(self, report_id: str) -> dict:
-    """Generate a PDF report for the given report ID.
-
-    Args:
-        report_id: UUID of the Report to generate.
-
-    Returns:
-        Dict with report_id, file_path, and status.
-    """
+    """Generate a PDF report for the given report ID."""
     db = _get_db()
+    report: Report | None = None
     try:
         report = db.query(Report).filter(Report.id == report_id).first()
         if not report:
             raise ValueError(f"Report {report_id} not found")
+
+        item_ids = report.metadata_json.get("item_ids", [])
+        llm_service = _get_default_llm_service(db)
+        summary = ""
+        if llm_service and item_ids:
+            try:
+                import asyncio
+                summary = asyncio.run(summarize_trends(db, item_ids, llm_service))
+            except Exception:
+                summary = ""
+        report.summary_text = summary
+
         file_path = generate_pdf_report(db, report)
         report.status = "completed"
         report.file_path = file_path

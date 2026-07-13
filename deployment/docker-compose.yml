@@ -1,0 +1,51 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  backend:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///data/trend_scout.db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - LLM_DEFAULT_BASE_URL=${LLM_DEFAULT_BASE_URL:-https://api.openai.com/v1}
+      - LLM_DEFAULT_MODEL=${LLM_DEFAULT_MODEL:-gpt-4o-mini}
+      - OUTPUT_DIR=/data/outputs
+    volumes:
+      - app_data:/data
+    depends_on:
+      - redis
+
+  worker:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    command: celery -A trend_scout_enterprise.workers.scan_worker worker --loglevel=info
+    environment:
+      - DATABASE_URL=sqlite:///data/trend_scout.db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - OUTPUT_DIR=/data/outputs
+    volumes:
+      - app_data:/data
+    depends_on:
+      - redis
+      - backend
+
+volumes:
+  redis_data:
+  app_data:

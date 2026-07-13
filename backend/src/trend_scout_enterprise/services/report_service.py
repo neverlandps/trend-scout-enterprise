@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from weasyprint import HTML
 
 from trend_scout_enterprise.core.config import settings
-from trend_scout_enterprise.models.models import RawItem, Report
+from trend_scout_enterprise.models.models import RawItem, Report, Source
 
 
 _TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "..", "templates")
@@ -39,16 +39,46 @@ def generate_pdf_report(db: Session, report: Report) -> str:
     item_ids = report.metadata_json.get("item_ids", [])
     filters = report.metadata_json.get("filters", {})
 
-    query = db.query(RawItem)
+    query = db.query(RawItem).join(Source).filter(Source.owner_id == report.owner_id)
     if item_ids:
         query = query.filter(RawItem.id.in_(item_ids))
-    items = query.all()
+    if filters.get("min_score") is not None:
+        query = query.filter(RawItem.overall_score >= filters["min_score"])
+    if filters.get("source_id"):
+        query = query.filter(RawItem.source_id == filters["source_id"])
+    items = (
+        query.order_by(RawItem.overall_score.desc().nullslast(), RawItem.collected_at.desc())
+        .limit(100)
+        .all()
+    )
+
+    enriched_items = []
+    for item in items:
+        source = db.query(Source).filter(Source.id == item.source_id).first()
+        enriched_items.append(
+            {
+                "id": item.id,
+                "title": item.title or "Untitled",
+                "summary": item.summary or "",
+                "url": item.url,
+                "source_name": source.name if source else "Unknown",
+                "source_type": source.source_type if source else "unknown",
+                "overall_score": item.overall_score,
+                "signal_strength": item.signal_strength,
+                "cross_domain_impact": item.cross_domain_impact,
+                "investment_velocity": item.investment_velocity,
+                "technical_feasibility": item.technical_feasibility,
+                "strategic_fit": item.strategic_fit,
+                "published_at": item.published_at.isoformat() if item.published_at else "",
+            }
+        )
 
     template = _jinja_env.get_template("report_default.html")
     html_content = template.render(
         title=report.title or "Trend Scout Report",
         generated_at=datetime.utcnow().isoformat(),
-        items=items,
+        summary=report.summary_text or "",
+        items=enriched_items,
         filters=filters,
     )
 

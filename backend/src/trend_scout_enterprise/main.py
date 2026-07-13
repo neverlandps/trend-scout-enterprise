@@ -1,15 +1,61 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+from sqlalchemy.orm import Session
 
-from trend_scout_enterprise.api import health_router, sources_router, scans_router, reports_router, settings_router
+from trend_scout_enterprise.api import (
+    health_router,
+    sources_router,
+    scans_router,
+    reports_router,
+    settings_router,
+    signals_router,
+)
 from trend_scout_enterprise.core.config import settings
-from trend_scout_enterprise.core.database import engine, Base
+from trend_scout_enterprise.core.database import engine, Base, SessionLocal
+from trend_scout_enterprise.core.security import get_or_create_default_api_key
+from trend_scout_enterprise.models import LlmProvider, ScoringProfile
+from trend_scout_enterprise.core.encryption import encrypt_value
+from trend_scout_enterprise.services.scoring_service import get_default_dimensions
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        _seed_defaults(db)
+    finally:
+        db.close()
     yield
+
+
+def _seed_defaults(db: Session) -> None:
+    """Seed default API key, LLM provider, and scoring profile if tables are empty."""
+    get_or_create_default_api_key(db)
+
+    if not db.query(LlmProvider).first():
+        default_llm = LlmProvider(
+            id=__import__("uuid").uuid4().hex,
+            name="default",
+            base_url=settings.llm_default_base_url,
+            api_key_encrypted=None,
+            model=settings.llm_default_model,
+            temperature=0.7,
+            max_tokens=4096,
+            is_default=True,
+        )
+        db.add(default_llm)
+        db.commit()
+
+    if not db.query(ScoringProfile).first():
+        default_profile = ScoringProfile(
+            id=__import__("uuid").uuid4().hex,
+            name="default",
+            is_default=True,
+            dimensions=[d.model_dump() for d in get_default_dimensions()],
+        )
+        db.add(default_profile)
+        db.commit()
 
 
 app = FastAPI(
@@ -19,11 +65,12 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.include_router(health_router.router, prefix="/api/v1", tags=["health"])
-app.include_router(sources_router.router, prefix="/api/v1", tags=["sources"])
-app.include_router(scans_router.router, prefix="/api/v1", tags=["scans"])
-app.include_router(reports_router.router, prefix="/api/v1", tags=["reports"])
-app.include_router(settings_router.router, prefix="/api/v1", tags=["settings"])
+app.include_router(health_router, prefix="/api/v1", tags=["health"])
+app.include_router(sources_router, prefix="/api/v1", tags=["sources"])
+app.include_router(scans_router, prefix="/api/v1", tags=["scans"])
+app.include_router(signals_router, prefix="/api/v1", tags=["signals"])
+app.include_router(reports_router, prefix="/api/v1", tags=["reports"])
+app.include_router(settings_router, prefix="/api/v1", tags=["settings"])
 
 
 if __name__ == "__main__":

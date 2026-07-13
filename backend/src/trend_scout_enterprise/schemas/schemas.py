@@ -20,7 +20,6 @@ class SourceBase(BaseModel):
     tags: list[str] = Field(default_factory=list)
     enabled: bool = True
     refresh_interval_minutes: int = Field(default=60, ge=1)
-    owner: str | None = Field(default=None, max_length=255)
 
 
 class SourceCreate(SourceBase):
@@ -37,16 +36,17 @@ class SourceUpdate(BaseModel):
     tags: list[str] | None = None
     enabled: bool | None = None
     refresh_interval_minutes: int | None = Field(default=None, ge=1)
-    owner: str | None = Field(default=None, max_length=255)
 
 
 class SourceOut(SourceBase):
     """Response schema for a source."""
 
     id: str
+    owner_id: str
     health_status: str = "unknown"
     last_scan_at: datetime | None = None
     last_failure_reason: str | None = None
+    suggested_fix: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -60,6 +60,22 @@ class SourceListOut(BaseModel):
     sources: list[SourceOut]
 
 
+class SourceHealthOut(BaseModel):
+    """Response schema for source health status."""
+
+    source_id: str
+    health_status: str
+    last_scan_at: datetime | None = None
+    last_failure_reason: str | None = None
+    suggested_fix: str | None = None
+
+
+class ScannerTypeOut(BaseModel):
+    """Response schema for supported scanner types."""
+
+    scanner_types: list[str]
+
+
 # ---------------------------------------------------------------------------
 # Scan Runs
 # ---------------------------------------------------------------------------
@@ -67,22 +83,26 @@ class SourceListOut(BaseModel):
 class ScanRunBase(BaseModel):
     """Common fields for scan run schemas."""
 
-    status: str = "pending"
+    source_id: str
 
 
 class ScanRunCreate(BaseModel):
-    """Request schema for triggering a scan (empty for now)."""
+    """Request schema for triggering a scan."""
+
+    source_id: str
 
 
 class ScanRunOut(ScanRunBase):
     """Response schema for a scan run."""
 
     id: str
+    status: str = "pending"
     started_at: datetime | None = None
     completed_at: datetime | None = None
     items_collected: int = 0
     items_new: int = 0
-    items_filtered: int = 0
+    items_analyzed: int = 0
+    items_failed: int = 0
     error_log: list[str] = Field(default_factory=list)
     suggested_fix: str | None = None
 
@@ -122,6 +142,27 @@ class RawItemOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class SignalListOut(BaseModel):
+    """Response schema for listing signals."""
+
+    signals: list[RawItemOut]
+    total: int
+
+
+class SignalAnalyzeRequest(BaseModel):
+    """Request schema for analyzing selected signals."""
+
+    item_ids: list[str]
+
+
+class SignalAnalyzeOut(BaseModel):
+    """Response schema for signal analysis batch."""
+
+    analyzed: int
+    failed: int
+    average_score: float
 
 
 # ---------------------------------------------------------------------------
@@ -176,7 +217,7 @@ class LlmProviderBase(BaseModel):
 
     name: str = Field(..., max_length=255)
     base_url: str
-    api_key_encrypted: str | None = None
+    api_key: str | None = None  # plain on input, encrypted on storage
     model: str = Field(..., max_length=255)
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=4096, ge=1)
@@ -191,6 +232,7 @@ class LlmProviderOut(LlmProviderBase):
     """Response schema for an LLM provider."""
 
     id: str
+    api_key: str | None = None  # masked in responses
 
     class Config:
         from_attributes = True
@@ -212,6 +254,7 @@ class LlmSettingsUpdate(BaseModel):
     model: str | None = None
     temperature: float | None = Field(default=None, ge=0.0, le=2.0)
     max_tokens: int | None = Field(default=None, ge=1)
+    api_key: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -236,8 +279,10 @@ class ReportOut(ReportBase):
     """Response schema for a report."""
 
     id: str
+    owner_id: str
     status: str = "generating"
     file_path: str | None = None
+    summary_text: str | None = None
     created_at: datetime
     metadata_json: dict[str, Any] = Field(default_factory=dict)
 
@@ -260,3 +305,35 @@ class HealthOut(BaseModel):
 
     status: str
     service: str
+
+
+# ---------------------------------------------------------------------------
+# API Keys
+# ---------------------------------------------------------------------------
+
+class ApiKeyOut(BaseModel):
+    """Response schema for an API key."""
+
+    id: str
+    name: str
+    key_prefix: str
+    is_active: bool
+    role: str
+    created_at: datetime
+    last_used_at: datetime | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class ApiKeyCreate(BaseModel):
+    """Request schema for creating an API key."""
+
+    name: str = Field(..., max_length=255)
+    role: str = Field(default="analyst")
+
+
+class ApiKeyCreateOut(ApiKeyOut):
+    """Response schema returning the full key once."""
+
+    plaintext_key: str

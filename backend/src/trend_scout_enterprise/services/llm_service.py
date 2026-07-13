@@ -1,5 +1,6 @@
 """LLM service for OpenAI-compatible API calls."""
 
+import json
 from typing import Any
 
 import httpx
@@ -21,15 +22,7 @@ class LlmService:
         temperature: float = 0.7,
         max_tokens: int = 4096,
     ) -> None:
-        """Initialize LLM client with provider settings.
-
-        Args:
-            base_url: OpenAI-compatible API base URL.
-            api_key: API key for authentication.
-            model: Model identifier.
-            temperature: Sampling temperature.
-            max_tokens: Maximum tokens to generate.
-        """
+        """Initialize LLM client with provider settings."""
         self.base_url = (base_url or settings.llm_default_base_url).rstrip("/")
         self.api_key = api_key
         self.model = model or settings.llm_default_model
@@ -42,19 +35,7 @@ class LlmService:
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> dict[str, Any]:
-        """Send a chat completion request to the LLM endpoint.
-
-        Args:
-            messages: List of message dicts with 'role' and 'content'.
-            temperature: Optional override for sampling temperature.
-            max_tokens: Optional override for max tokens.
-
-        Returns:
-            Parsed JSON response from the LLM API.
-
-        Raises:
-            httpx.HTTPError: If the request fails.
-        """
+        """Send a chat completion request to the LLM endpoint."""
         url = f"{self.base_url}/chat/completions"
         headers: dict[str, str] = {"Content-Type": "application/json"}
         if self.api_key:
@@ -71,15 +52,7 @@ class LlmService:
             return response.json()
 
     async def summarize_text(self, text: str, max_tokens: int = 512) -> str:
-        """Summarize a block of text using the LLM.
-
-        Args:
-            text: Input text to summarize.
-            max_tokens: Maximum tokens for the summary.
-
-        Returns:
-            Summarized text string.
-        """
+        """Summarize a block of text using the LLM."""
         messages = [
             {
                 "role": "system",
@@ -93,16 +66,23 @@ class LlmService:
             return choices[0].get("message", {}).get("content", "").strip()
         return ""
 
+    def _parse_score_response(self, content: str, dimensions: list[str]) -> dict[str, float]:
+        """Parse LLM score response, returning zeroes for missing dimensions."""
+        # Try to extract JSON if wrapped in markdown fences
+        cleaned = content.strip()
+        if cleaned.startswith("```"):
+            cleaned = "\n".join(cleaned.split("\n")[1:-1]).strip()
+        try:
+            scores = json.loads(cleaned)
+            return {
+                d: min(1.0, max(0.0, float(scores.get(d, 0.0))))
+                for d in dimensions
+            }
+        except (json.JSONDecodeError, ValueError, TypeError):
+            return {d: 0.0 for d in dimensions}
+
     async def score_dimensions(self, text: str, dimensions: list[str]) -> dict[str, float]:
-        """Score text across multiple dimensions using the LLM.
-
-        Args:
-            text: Input text to score.
-            dimensions: List of dimension names to score.
-
-        Returns:
-            Dict mapping dimension name to a float score between 0 and 1.
-        """
+        """Score text across multiple dimensions using the LLM."""
         dim_str = ", ".join(dimensions)
         messages = [
             {
@@ -116,10 +96,4 @@ class LlmService:
         ]
         result = await self.chat_completion(messages, max_tokens=512)
         content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
-        import json
-
-        try:
-            scores = json.loads(content)
-            return {k: float(v) for k, v in scores.items() if k in dimensions}
-        except (json.JSONDecodeError, ValueError):
-            return {d: 0.0 for d in dimensions}
+        return self._parse_score_response(content, dimensions)
