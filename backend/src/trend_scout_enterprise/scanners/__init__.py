@@ -6,6 +6,7 @@ from trend_scout_enterprise.scanners.arxiv_scanner import ArxivScanner
 from trend_scout_enterprise.scanners.base import BaseScanner
 from trend_scout_enterprise.scanners.custom_api_scanner import CustomApiScanner
 from trend_scout_enterprise.scanners.rss_scanner import RssScanner
+from trend_scout_enterprise.scanners.sharepoint_scanner import SharePointScanner
 from trend_scout_enterprise.scanners.web_search_scanner import WebSearchScanner
 
 _SCANNER_REGISTRY: dict[str, type[BaseScanner]] = {
@@ -13,6 +14,7 @@ _SCANNER_REGISTRY: dict[str, type[BaseScanner]] = {
     "arxiv": ArxivScanner,
     "web_search": WebSearchScanner,
     "custom_api": CustomApiScanner,
+    "sharepoint_list": SharePointScanner,
 }
 
 

@@ -5,6 +5,7 @@ from trend_scout_enterprise.api.scans_router import router as scans_router
 from trend_scout_enterprise.api.signals_router import router as signals_router
 from trend_scout_enterprise.api.reports_router import router as reports_router
 from trend_scout_enterprise.api.settings_router import router as settings_router
+from trend_scout_enterprise.api.sharepoint_router import router as sharepoint_router
 
 __all__ = [
     "auth_router",
@@ -14,4 +15,5 @@ __all__ = [
     "signals_router",
     "reports_router",
     "settings_router",
+    "sharepoint_router",
 ]

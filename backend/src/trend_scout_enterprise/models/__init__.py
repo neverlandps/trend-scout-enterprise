@@ -11,6 +11,10 @@ from trend_scout_enterprise.models.auth import (
     MicrosoftAuthConfig,
     UserSession,
 )
+from trend_scout_enterprise.models.sharepoint import (
+    SharePointConnection,
+    SharePointUploadRecord,
+)
 
 __all__ = [
     "ApiKey",
@@ -20,6 +24,8 @@ __all__ = [
     "Report",
     "ScanRun",
     "ScoringProfile",
+    "SharePointConnection",
+    "SharePointUploadRecord",
     "Source",
     "UserSession",
 ]

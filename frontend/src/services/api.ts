@@ -19,6 +19,63 @@ export function getApiKey(): string | undefined {
 
 export default api
 
+export interface SharePointConnection {
+  id: string
+  name: string
+  site_id: string | null
+  site_url: string | null
+  list_id: string | null
+  drive_id: string | null
+  tenant_id: string
+  client_id: string
+  is_enabled: boolean
+  is_default: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface SharePointConnectionCreate {
+  name: string
+  site_id?: string
+  site_url?: string
+  list_id?: string
+  drive_id?: string
+  tenant_id: string
+  client_id: string
+  client_secret: string
+  is_enabled?: boolean
+  is_default?: boolean
+}
+
+export async function fetchSharePointConnections(): Promise<SharePointConnection[]> {
+  const res = await api.get('/sharepoint/connections')
+  return res.data
+}
+
+export async function createSharePointConnection(payload: SharePointConnectionCreate): Promise<SharePointConnection> {
+  const res = await api.post('/sharepoint/connections', payload)
+  return res.data
+}
+
+export async function updateSharePointConnection(id: string, payload: Partial<SharePointConnectionCreate>): Promise<SharePointConnection> {
+  const res = await api.patch(`/sharepoint/connections/${id}`, payload)
+  return res.data
+}
+
+export async function deleteSharePointConnection(id: string): Promise<void> {
+  await api.delete(`/sharepoint/connections/${id}`)
+}
+
+export async function checkSharePointHealth(id: string): Promise<{ status: string; message?: string }> {
+  const res = await api.get(`/sharepoint/connections/${id}/health`)
+  return res.data
+}
+
+export async function uploadReportToSharePoint(reportId: string, connectionId: string): Promise<SharePointConnection> {
+  const res = await api.post('/sharepoint/upload', { report_id: reportId, connection_id: connectionId })
+  return res.data
+}
+
 export interface Source {
   id: string
   name: string

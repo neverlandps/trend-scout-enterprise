@@ -10,7 +10,7 @@ from trend_scout_enterprise.models.models import ApiKey, Source
 from trend_scout_enterprise.schemas.schemas import SourceCreate, SourceOut, SourceUpdate
 
 
-VALID_SOURCE_TYPES = {"rss", "arxiv", "web_search", "custom_api"}
+VALID_SOURCE_TYPES = {"rss", "arxiv", "web_search", "custom_api", "sharepoint_list"}
 
 
 _SUGGESTED_FIXES = {
@@ -18,6 +18,7 @@ _SUGGESTED_FIXES = {
     "arxiv": "Verify the arXiv query syntax and network connectivity to export.arxiv.org.",
     "web_search": "Check the search API endpoint, query parameter, and API key/billing status.",
     "custom_api": "Check the API URL, method, headers, response_path, and field_mapping in the source config.",
+    "sharepoint_list": "Check the SharePoint connection is enabled, the Graph API permissions are granted, and the list ID/site URL are correct.",
 }
 
 
@@ -34,6 +35,13 @@ def validate_source_config(source_type: str, config: dict[str, Any]) -> None:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid source type: {source_type}. Must be one of {VALID_SOURCE_TYPES}",
         )
+    if source_type == "sharepoint_list":
+        if not config.get("connection_id"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Config 'connection_id' is required for sharepoint_list source type",
+            )
+        return
     if not config.get("url"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

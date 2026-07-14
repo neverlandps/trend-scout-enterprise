@@ -10,12 +10,14 @@ from trend_scout_enterprise.api import (
     reports_router,
     settings_router,
     signals_router,
+    sharepoint_router,
 )
 from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.core.database import engine, Base, SessionLocal
 from trend_scout_enterprise.core.security import get_or_create_default_api_key
 from trend_scout_enterprise.models import LlmProvider, ScoringProfile, ApiKey
 from trend_scout_enterprise.models.auth import MicrosoftAuthConfig, UserSession
+from trend_scout_enterprise.models.sharepoint import SharePointConnection, SharePointUploadRecord
 from trend_scout_enterprise.core.encryption import encrypt_value
 from trend_scout_enterprise.services.scoring_service import get_default_dimensions
 
@@ -74,6 +76,7 @@ app.include_router(scans_router, prefix="/api/v1", tags=["scans"])
 app.include_router(signals_router, prefix="/api/v1", tags=["signals"])
 app.include_router(reports_router, prefix="/api/v1", tags=["reports"])
 app.include_router(settings_router, prefix="/api/v1", tags=["settings"])
+app.include_router(sharepoint_router, prefix="/api/v1", tags=["sharepoint"])
 
 
 if __name__ == "__main__":

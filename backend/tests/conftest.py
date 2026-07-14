@@ -7,7 +7,8 @@ from sqlalchemy.orm import sessionmaker
 
 from trend_scout_enterprise.core.database import Base, get_db
 from trend_scout_enterprise.main import app
-from trend_scout_enterprise.core.config import settings
+from trend_scout_enterprise.core.security import generate_api_key, hash_api_key, get_key_prefix
+from trend_scout_enterprise.models.models import ApiKey
 
 
 @pytest.fixture(scope="function")
@@ -27,13 +28,23 @@ def test_db():
 
 @pytest.fixture(scope="function")
 def client(test_db):
-    """Return a TestClient with the test database override."""
-    original_url = settings.database_url
-    settings.database_url = f"sqlite:///{test_db.bind.url.database}"
-    app.dependency_overrides[get_db] = lambda: test_db
+    """Return a TestClient with the test database override and API key auth."""
     from fastapi.testclient import TestClient
 
-    test_client = TestClient(app)
+    # Create a deterministic API key in the test database
+    plaintext = "test_api_key_for_unit_tests"
+    api_key = ApiKey(
+        id="test-key-id",
+        name="test",
+        key_hash=hash_api_key(plaintext),
+        key_prefix=get_key_prefix(plaintext),
+        is_active=True,
+        role="admin",
+    )
+    test_db.add(api_key)
+    test_db.commit()
+
+    app.dependency_overrides[get_db] = lambda: test_db
+    test_client = TestClient(app, headers={"X-API-Key": plaintext})
     yield test_client
     app.dependency_overrides.clear()
-    settings.database_url = original_url
