@@ -17,6 +17,7 @@ from trend_scout_enterprise.scanners import get_scanner
 from trend_scout_enterprise.services import source_service
 from trend_scout_enterprise.services.analysis_service import analyze_signals_batch
 from trend_scout_enterprise.services.llm_service import LlmService
+from trend_scout_enterprise.services.notification_service import NotificationService
 
 celery_app = Celery(
     "trend_scout_enterprise",
@@ -33,21 +34,13 @@ def _get_db() -> Session:
 
 
 def _get_default_llm_service(db: Session) -> LlmService | None:
-    """Build an LlmService from the default provider, or None on failure."""
-    from trend_scout_enterprise.core.encryption import decrypt_value
-
     provider = db.query(LlmProvider).filter(LlmProvider.is_default == True).first()
     if not provider:
         return None
-    api_key = None
-    if provider.api_key_encrypted:
-        try:
-            api_key = decrypt_value(provider.api_key_encrypted)
-        except Exception:
-            api_key = None
+    from trend_scout_enterprise.core.encryption import decrypt_value
     return LlmService(
         base_url=provider.base_url,
-        api_key=api_key,
+        api_key=decrypt_value(provider.api_key_encrypted) if provider.api_key_encrypted else None,
         model=provider.model,
         temperature=provider.temperature,
         max_tokens=provider.max_tokens,
@@ -59,6 +52,7 @@ def run_scan(self, scan_run_id: str) -> dict:
     """Execute a scan run: collect signals from the specified source."""
     db = _get_db()
     scan_run: ScanRun | None = None
+    source: Source | None = None
     try:
         scan_run = db.query(ScanRun).filter(ScanRun.id == scan_run_id).first()
         if not scan_run:
@@ -136,6 +130,13 @@ def run_scan(self, scan_run_id: str) -> dict:
         scan_run.items_failed = failed_analysis
         scan_run.error_log = errors
         db.commit()
+
+        # Send notifications if channels are configured
+        try:
+            NotificationService(db).notify_scan_run(scan_run)
+        except Exception:
+            # Notifications are best-effort; do not fail scan if notification fails.
+            pass
 
         return {
             "scan_run_id": scan_run_id,

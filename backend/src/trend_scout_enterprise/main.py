@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from trend_scout_enterprise.api import (
     auth_router,
     health_router,
+    schedule_router,
     sources_router,
     scans_router,
     reports_router,
@@ -77,6 +78,7 @@ app.include_router(signals_router, prefix="/api/v1", tags=["signals"])
 app.include_router(reports_router, prefix="/api/v1", tags=["reports"])
 app.include_router(settings_router, prefix="/api/v1", tags=["settings"])
 app.include_router(sharepoint_router, prefix="/api/v1", tags=["sharepoint"])
+app.include_router(schedule_router, prefix="/api/v1", tags=["schedules"])
 
 
 if __name__ == "__main__":

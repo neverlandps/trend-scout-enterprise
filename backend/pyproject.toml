@@ -45,6 +45,7 @@ dependencies = [
     "markdown>=3.6",
     "click>=8.1",
     "structlog>=24.1",
+    "croniter>=2.0",
 ]
 
 [project.optional-dependencies]

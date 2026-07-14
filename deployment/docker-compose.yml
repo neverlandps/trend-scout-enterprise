@@ -32,6 +32,7 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - ENCRYPTION_SALT=${ENCRYPTION_SALT:-}
       - LLM_DEFAULT_BASE_URL=${LLM_DEFAULT_BASE_URL:-https://api.openai.com/v1}
       - LLM_DEFAULT_MODEL=${LLM_DEFAULT_MODEL:-gpt-4o-mini}
       - OUTPUT_DIR=/data/outputs
@@ -43,16 +44,16 @@ services:
 
   worker:
     image: ${BACKEND_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/trend-scout-enterprise-backend:main}
-    build:
-      context: ..
-      dockerfile: deployment/Dockerfile
-    command: celery -A trend_scout_enterprise.workers.scan_worker worker --loglevel=info
+    command: celery -A trend_scout_enterprise.workers.scan_worker worker --loglevel=info --concurrency=2
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://postgres:postgres@postgres:5432/trend_scout}
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - ENCRYPTION_SALT=${ENCRYPTION_SALT:-}
+      - LLM_DEFAULT_BASE_URL=${LLM_DEFAULT_BASE_URL:-https://api.openai.com/v1}
+      - LLM_DEFAULT_MODEL=${LLM_DEFAULT_MODEL:-gpt-4o-mini}
       - OUTPUT_DIR=/data/outputs
     volumes:
       - app_data:/data
@@ -63,21 +64,23 @@ services:
 
   beat:
     image: ${BACKEND_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/trend-scout-enterprise-backend:main}
-    build:
-      context: ..
-      dockerfile: deployment/Dockerfile
-    command: celery -A trend_scout_enterprise.workers.scan_worker beat --loglevel=info
+    command: celery -A trend_scout_enterprise.workers.beat_scheduler beat --loglevel=info
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://postgres:postgres@postgres:5432/trend_scout}
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - ENCRYPTION_SALT=${ENCRYPTION_SALT:-}
+      - LLM_DEFAULT_BASE_URL=${LLM_DEFAULT_BASE_URL:-https://api.openai.com/v1}
+      - LLM_DEFAULT_MODEL=${LLM_DEFAULT_MODEL:-gpt-4o-mini}
+      - OUTPUT_DIR=/data/outputs
     volumes:
       - app_data:/data
     depends_on:
       - postgres
       - redis
+      - backend
 
 volumes:
   postgres_data:
