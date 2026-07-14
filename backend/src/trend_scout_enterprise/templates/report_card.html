@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; margin: 0; padding: 24px; background: #f3f4f6; }
+    .container { max-width: 960px; margin: 0 auto; }
+    .header { background: #1f2937; color: #fff; padding: 24px; border-radius: 12px; margin-bottom: 24px; }
+    .header h1 { margin: 0 0 8px; font-size: 28px; }
+    .header .meta { font-size: 14px; color: #d1d5db; }
+    .summary { background: #fff; padding: 20px; border-radius: 12px; margin-bottom: 24px; border-left: 4px solid #3b82f6; }
+    .card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .card h2 { margin: 0 0 8px; font-size: 20px; color: #111827; }
+    .card .meta { font-size: 13px; color: #6b7280; margin-bottom: 12px; }
+    .scores { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+    .score { background: #eff6ff; color: #1d4ed8; padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+    .summary-text { color: #374151; line-height: 1.5; }
+    .empty { text-align: center; color: #6b7280; padding: 40px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>{{ title }}</h1>
+      <div class="meta">Generated at {{ generated_at[:19] }} · {{ total_items }} items</div>
+    </div>
+    {% if summary %}
+    <div class="summary">
+      <strong>Executive Summary</strong>
+      <div class="summary-text">{{ summary }}</div>
+    </div>
+    {% endif %}
+    {% if items %}
+      {% for item in items %}
+      <div class="card">
+        <h2>{{ item.title }}</h2>
+        <div class="meta">{{ item.source_name }} ({{ item.source_type }}) · {{ item.published_at[:10] if item.published_at else 'N/A' }}</div>
+        <div class="scores">
+          {% if item.overall_score is not none %} <div class="score">Overall {{ '%.1f'|format(item.overall_score) }}</div> {% endif %}
+          {% if item.signal_strength is not none %} <div class="score">Signal {{ '%.1f'|format(item.signal_strength) }}</div> {% endif %}
+          {% if item.cross_domain_impact is not none %} <div class="score">Cross-Domain {{ '%.1f'|format(item.cross_domain_impact) }}</div> {% endif %}
+          {% if item.investment_velocity is not none %} <div class="score">Velocity {{ '%.1f'|format(item.investment_velocity) }}</div> {% endif %}
+          {% if item.technical_feasibility is not none %} <div class="score">Feasibility {{ '%.1f'|format(item.technical_feasibility) }}</div> {% endif %}
+          {% if item.strategic_fit is not none %} <div class="score">Strategic Fit {{ '%.1f'|format(item.strategic_fit) }}</div> {% endif %}
+        </div>
+        <div class="summary-text">{{ item.summary }}</div>
+        {% if item.url %} <div class="meta"><a href="{{ item.url }}" target="_blank">{{ item.url }}</a></div> {% endif %}
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty">No items match the selected filters.</div>
+    {% endif %}
+  </div>
+</body>
+</html>

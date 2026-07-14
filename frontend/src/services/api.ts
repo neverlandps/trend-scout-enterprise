@@ -218,6 +218,7 @@ export async function createReport(payload: {
   title?: string
   item_ids?: string[]
   filters?: Record<string, unknown>
+  report_type?: 'pdf' | 'pptx' | 'card'
 }): Promise<Report> {
   const res = await api.post('/reports', payload)
   return res.data
