@@ -1,51 +1,52 @@
 # Trend Scout Enterprise
 
-AI-powered trend scouting automation for enterprise business teams.
+AI-powered trend scouting automation platform for enterprise business teams.
 
-## Overview
-
-Trend Scout Enterprise is a self-service, multi-user platform that automatically collects signals from curated sources (RSS, arXiv, web search, custom APIs), analyzes them with user-managed OpenAI-compatible LLMs, scores items with user-maintainable weights, and generates three ready-to-use outputs:
-
-- **PDF Reports** (priority in P0)
-- **Zoom Community Media Cards** (P1)
-- **PowerPoint Briefs** (P1)
-
-## Architecture
-
-```
-trend-scout-enterprise/
-├── backend/          # FastAPI + Python services
-│   ├── src/trend_scout_enterprise/
-│   └── tests/
-├── frontend/         # React + TypeScript SPA
-│   └── src/
-├── docs/             # Architecture, API specs
-└── deployment/       # Docker, Azure, SPFx
-```
-
-## Quick Start
+## Quick Start (Local Development)
 
 ```bash
-cd /home/ps/trend-scout-enterprise
-# Backend
-python -m venv venv
-source venv/bin/activate
-pip install -e backend/
 cd backend
-uvicorn trend_scout_enterprise.main:app --reload
+pip install -e .
+python -m pytest tests/ -v
+python -m uvicorn trend_scout_enterprise.main:app --host 0.0.0.0 --port 8000
+```
 
-# Frontend (separate terminal)
+## Deployment with Docker Compose
+
+A pre-built image is produced by GitHub Actions and pushed to GitHub Container Registry (ghcr.io).
+
+```bash
+cd deployment
+# Pull pre-built image and start
+GITHUB_REPOSITORY_OWNER=your-org docker compose up -d
+
+# Or build locally
+BACKEND_IMAGE= docker compose up -d --build
+```
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| DATABASE_URL | sqlite:///data/trend_scout.db | SQLite database path |
+| REDIS_URL | redis://redis:6379/0 | Redis connection |
+| CELERY_BROKER_URL | redis://redis:6379/0 | Celery broker |
+| CELERY_RESULT_BACKEND | redis://redis:6379/0 | Celery result backend |
+| SECRET_KEY | change-me-in-production | Encryption key |
+| LLM_DEFAULT_BASE_URL | https://api.openai.com/v1 | OpenAI-compatible LLM endpoint |
+| LLM_DEFAULT_MODEL | gpt-4o-mini | Default model |
+| OUTPUT_DIR | /data/outputs | Report output directory |
+
+## CI/CD
+
+GitHub Actions workflow at `.github/workflows/docker.yml`:
+- Runs backend tests on every push / PR
+- Builds and pushes backend image to `ghcr.io/<owner>/trend-scout-enterprise-backend`
+
+## Frontend
+
+```bash
 cd frontend
 npm install
 npm run dev
 ```
-
-## Project Status
-
-- P0 (MVP): in planning
-- Workspace initialized: `/home/ps/trend-scout-enterprise/`
-- Planning artifacts: `/home/ps/team-vault/projects/trend-scout-enterprise/planning/`
-
-## License
-
-Proprietary — internal enterprise use.

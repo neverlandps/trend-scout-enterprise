@@ -9,6 +9,7 @@ services:
       - redis_data:/data
 
   backend:
+    image: ${BACKEND_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/trend-scout-enterprise-backend:main}
     build:
       context: ..
       dockerfile: deployment/Dockerfile
@@ -29,6 +30,7 @@ services:
       - redis
 
   worker:
+    image: ${BACKEND_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/trend-scout-enterprise-backend:main}
     build:
       context: ..
       dockerfile: deployment/Dockerfile

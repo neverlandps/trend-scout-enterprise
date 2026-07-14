@@ -1,7 +1,7 @@
 """Scan run API endpoints with Celery integration."""
 
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.core.database import get_db
@@ -22,13 +22,14 @@ def _resolve_owner(x_api_key: str, db: Session) -> ApiKey:
     return owner
 
 
-@router.post("/scans", response_model=ScanRunOut, status_code=status.HTTP_201_CREATED)
+@router.post("/scans", response_model=ScanRunOut, status_code=status.HTTP_202_ACCEPTED)
 def trigger_scan(
     request: ScanRunCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     x_api_key: str = Depends(verify_api_key),
 ) -> ScanRunOut:
-    """Trigger a new scan run for a source owned by the authenticated API key."""
+    """Queue a new scan run for a source owned by the authenticated API key."""
     owner = _resolve_owner(x_api_key, db)
     source = db.query(Source).filter(
         Source.id == request.source_id, Source.owner_id == owner.id
@@ -49,7 +50,7 @@ def trigger_scan(
     db.add(db_scan)
     db.commit()
     db.refresh(db_scan)
-    run_scan_task.delay(db_scan.id)
+    background_tasks.add_task(run_scan_task.delay, db_scan.id)
     return db_scan
 
 

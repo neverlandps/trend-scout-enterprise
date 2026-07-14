@@ -24,6 +24,9 @@ celery_app = Celery(
     backend=settings.celery_result_backend,
 )
 
+# Fallback: when Redis is unavailable, keep tasks in-process so the API still works for MVP.
+celery_app.conf.task_always_eager = settings.celery_broker_url.startswith("memory") or settings.celery_broker_url.startswith("redis://localhost")
+
 
 def _get_db() -> Session:
     return SessionLocal()
@@ -142,11 +145,27 @@ def run_scan(self, scan_run_id: str) -> dict:
             "items_analyzed": analyzed,
         }
     except Exception as exc:
+        failure_reason = str(exc)
         if scan_run:
             scan_run.status = "failed"
             scan_run.completed_at = datetime.utcnow()
-            scan_run.error_log = [str(exc)]
-            db.commit()
+            scan_run.error_log = [failure_reason]
+        if source:
+            source.health_status = "failed"
+            source.last_failure_reason = failure_reason
+            try:
+                source.suggested_fix = source_service._suggested_fix(source.source_type, failure_reason)
+            except Exception:
+                source.suggested_fix = "Check source configuration and network connectivity."
+            source.last_scan_at = datetime.utcnow()
+        db.commit()
+        # Avoid infinite retries when no real broker is available (MVP fallback).
+        if settings.celery_broker_url.startswith("redis://localhost") or settings.celery_broker_url.startswith("memory"):
+            return {
+                "scan_run_id": scan_run_id,
+                "status": "failed",
+                "error": failure_reason,
+            }
         raise self.retry(exc=exc)
     finally:
         db.close()
