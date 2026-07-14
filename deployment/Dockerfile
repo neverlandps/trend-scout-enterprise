@@ -12,8 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY backend/pyproject.toml ./
+COPY backend/README.md ./
 COPY backend/src ./src
-COPY README.md ./README.md
 
 RUN pip install --no-cache-dir -e .
 
