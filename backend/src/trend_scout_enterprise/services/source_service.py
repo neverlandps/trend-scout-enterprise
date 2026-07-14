@@ -49,7 +49,7 @@ def validate_source_config(source_type: str, config: dict[str, Any]) -> None:
         )
 
 
-def create_source(db: Session, source: SourceCreate, owner: ApiKey) -> Source:
+def create_source(db: Session, source: SourceCreate, owner: ApiKey, workspace_id: str) -> Source:
     """Create a new signal source after validation."""
     validate_source_config(source.source_type, source.config)
     db_source = Source(
@@ -62,6 +62,7 @@ def create_source(db: Session, source: SourceCreate, owner: ApiKey) -> Source:
         enabled=source.enabled,
         refresh_interval_minutes=source.refresh_interval_minutes,
         owner_id=owner.id,
+        workspace_id=workspace_id,
         health_status="unknown",
     )
     db.add(db_source)
@@ -70,10 +71,12 @@ def create_source(db: Session, source: SourceCreate, owner: ApiKey) -> Source:
     return db_source
 
 
-def get_source(db: Session, source_id: str, owner: ApiKey | None = None) -> Source:
-    """Retrieve a source by ID, optionally scoped to an owner."""
+def get_source(db: Session, source_id: str, owner: ApiKey | None = None, workspace_id: str | None = None) -> Source:
+    """Retrieve a source by ID, optionally scoped to an owner/workspace."""
     query = db.query(Source).filter(Source.id == source_id)
-    if owner is not None:
+    if workspace_id is not None:
+        query = query.filter(Source.workspace_id == workspace_id)
+    elif owner is not None:
         query = query.filter(Source.owner_id == owner.id)
     db_source = query.first()
     if not db_source:
@@ -81,17 +84,19 @@ def get_source(db: Session, source_id: str, owner: ApiKey | None = None) -> Sour
     return db_source
 
 
-def list_sources(db: Session, owner: ApiKey | None = None) -> list[Source]:
-    """List all signal sources, optionally scoped to an owner."""
+def list_sources(db: Session, owner: ApiKey | None = None, workspace_id: str | None = None) -> list[Source]:
+    """List all signal sources, optionally scoped to an owner/workspace."""
     query = db.query(Source)
-    if owner is not None:
+    if workspace_id is not None:
+        query = query.filter(Source.workspace_id == workspace_id)
+    elif owner is not None:
         query = query.filter(Source.owner_id == owner.id)
     return query.all()
 
 
-def update_source(db: Session, source_id: str, source: SourceUpdate, owner: ApiKey | None = None) -> Source:
+def update_source(db: Session, source_id: str, source: SourceUpdate, owner: ApiKey | None = None, workspace_id: str | None = None) -> Source:
     """Update an existing source."""
-    db_source = get_source(db, source_id, owner)
+    db_source = get_source(db, source_id, owner, workspace_id)
     update_data = source.model_dump(exclude_unset=True)
     if "source_type" in update_data or "config" in update_data:
         new_type = update_data.get("source_type", db_source.source_type)
@@ -109,9 +114,9 @@ def update_source(db: Session, source_id: str, source: SourceUpdate, owner: ApiK
     return db_source
 
 
-def delete_source(db: Session, source_id: str, owner: ApiKey | None = None) -> None:
+def delete_source(db: Session, source_id: str, owner: ApiKey | None = None, workspace_id: str | None = None) -> None:
     """Delete a source by ID."""
-    db_source = get_source(db, source_id, owner)
+    db_source = get_source(db, source_id, owner, workspace_id)
     db.delete(db_source)
     db.commit()
 

@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.core.database import get_db
-from trend_scout_enterprise.core.security import resolve_current_identity
+from trend_scout_enterprise.core.dependencies import get_current_api_key, get_current_workspace
+from trend_scout_enterprise.models.models import ApiKey, Workspace
 from trend_scout_enterprise.schemas.sharepoint import (
     SharePointConnectionIn,
     SharePointConnectionOut,
@@ -28,29 +29,32 @@ def _get_service(db: Session = Depends(get_db)) -> SharePointService:
 def create_connection(
     payload: SharePointConnectionIn,
     db: Session = Depends(get_db),
-    identity=Depends(resolve_current_identity),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ):
     service = SharePointService(db)
-    return service.create_connection(payload.model_dump())
+    return service.create_connection(payload.model_dump(), workspace_id=workspace.id, owner_id=api_key.id)
 
 
 @router.get("/connections", response_model=list[SharePointConnectionOut])
 def list_connections(
     db: Session = Depends(get_db),
-    identity=Depends(resolve_current_identity),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ):
     service = SharePointService(db)
-    return service.list_connections()
+    return service.list_connections(workspace_id=workspace.id)
 
 
 @router.get("/connections/{connection_id}", response_model=SharePointConnectionOut)
 def get_connection(
     connection_id: str,
     db: Session = Depends(get_db),
-    identity=Depends(resolve_current_identity),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ):
     service = SharePointService(db)
-    connection = service.get_connection(connection_id)
+    connection = service.get_connection(connection_id, workspace_id=workspace.id)
     if not connection:
         raise HTTPException(status_code=404, detail="Connection not found")
     return connection
@@ -61,23 +65,25 @@ def update_connection(
     connection_id: str,
     payload: SharePointConnectionUpdate,
     db: Session = Depends(get_db),
-    identity=Depends(resolve_current_identity),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ):
     service = SharePointService(db)
-    connection = service.get_connection(connection_id)
+    connection = service.get_connection(connection_id, workspace_id=workspace.id)
     if not connection:
         raise HTTPException(status_code=404, detail="Connection not found")
-    return service.update_connection(connection, payload.model_dump(exclude_unset=True))
+    return service.update_connection(connection, payload.model_dump(exclude_unset=True), workspace_id=workspace.id)
 
 
 @router.delete("/connections/{connection_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_connection(
     connection_id: str,
     db: Session = Depends(get_db),
-    identity=Depends(resolve_current_identity),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ):
     service = SharePointService(db)
-    connection = service.get_connection(connection_id)
+    connection = service.get_connection(connection_id, workspace_id=workspace.id)
     if not connection:
         raise HTTPException(status_code=404, detail="Connection not found")
     service.delete_connection(connection)
@@ -88,10 +94,11 @@ def delete_connection(
 def check_health(
     connection_id: str,
     db: Session = Depends(get_db),
-    identity=Depends(resolve_current_identity),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ):
     service = SharePointService(db)
-    connection = service.get_connection(connection_id)
+    connection = service.get_connection(connection_id, workspace_id=workspace.id)
     if not connection:
         raise HTTPException(status_code=404, detail="Connection not found")
     return service.check_health(connection)
@@ -101,12 +108,13 @@ def check_health(
 def upload_report(
     payload: SharePointUploadIn,
     db: Session = Depends(get_db),
-    identity=Depends(resolve_current_identity),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ):
     from pathlib import Path
 
     service = SharePointService(db)
-    report = db.query(Report).filter_by(id=payload.report_id).first()
+    report = db.query(Report).filter_by(id=payload.report_id, workspace_id=workspace.id).first()
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     if not report.file_path or not Path(report.file_path).exists():

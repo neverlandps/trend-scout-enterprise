@@ -83,6 +83,7 @@ def run_scan(self, scan_run_id: str) -> dict:
                     continue
                 raw_item = RawItem(
                     id=uuid.uuid4().hex,
+                    workspace_id=source.workspace_id,
                     source_id=source.id,
                     url=signal.url,
                     title=signal.title,

@@ -47,7 +47,7 @@ def validate_dimensions(dimensions: list[ScoringDimension]) -> None:
         raise ValueError(f"Enabled dimension weights must sum to 1.0, got {total}")
 
 
-def get_active_dimensions(db: Session) -> list[ScoringDimension]:
+def get_active_dimensions(db: Session, workspace_id: str | None = None) -> list[ScoringDimension]:
     """Retrieve active scoring dimensions from the default profile or fallback defaults.
 
     Args:
@@ -56,7 +56,10 @@ def get_active_dimensions(db: Session) -> list[ScoringDimension]:
     Returns:
         List of ScoringDimension objects.
     """
-    profile = db.query(ScoringProfile).filter(ScoringProfile.is_default == True).first()
+    q = db.query(ScoringProfile).filter(ScoringProfile.is_default == True)
+    if workspace_id is not None:
+        q = q.filter(ScoringProfile.workspace_id == workspace_id)
+    profile = q.first()
     if profile and profile.dimensions:
         return [ScoringDimension(**d) for d in profile.dimensions]
     return get_default_dimensions()
@@ -107,7 +110,8 @@ async def score_item_with_llm(
     Returns:
         The updated RawItem with scores persisted.
     """
-    dimensions = get_active_dimensions(db)
+    workspace_id = getattr(item, "workspace_id", None)
+    dimensions = get_active_dimensions(db, workspace_id=workspace_id)
     dim_names = [d.name for d in dimensions if d.enabled]
     text = f"{item.title or ''}\n{item.summary or ''}"
     scores = await llm_service.score_dimensions(text, dim_names)

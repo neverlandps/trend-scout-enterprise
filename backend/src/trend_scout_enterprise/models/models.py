@@ -1,8 +1,49 @@
-from sqlalchemy import Column, String, DateTime, Text, JSON, Boolean, Float, Integer, ForeignKey, Index
+from sqlalchemy import Column, String, DateTime, Text, JSON, Boolean, Float, Integer, ForeignKey, Index, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from trend_scout_enterprise.core.database import Base
+
+
+class Team(Base):
+    __tablename__ = "teams"
+
+    id = Column(String(36), primary_key=True)
+    name = Column(String(255), nullable=False)
+    slug = Column(String(100), nullable=False, unique=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    workspaces = relationship("Workspace", back_populates="team", cascade="all, delete-orphan")
+    memberships = relationship("TeamMembership", back_populates="team", cascade="all, delete-orphan")
+
+
+class TeamMembership(Base):
+    __tablename__ = "team_memberships"
+
+    id = Column(String(36), primary_key=True)
+    team_id = Column(String(36), ForeignKey("teams.id"), nullable=False)
+    api_key_id = Column(String(36), ForeignKey("api_keys.id"), nullable=False, unique=True)
+    role = Column(String(50), nullable=False, default="analyst")
+    joined_at = Column(DateTime, server_default=func.now())
+
+    team = relationship("Team", back_populates="memberships")
+    api_key = relationship("ApiKey", back_populates="membership")
+
+
+class Workspace(Base):
+    __tablename__ = "workspaces"
+
+    id = Column(String(36), primary_key=True)
+    team_id = Column(String(36), ForeignKey("teams.id"), nullable=False)
+    name = Column(String(255), nullable=False)
+    is_default = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    team = relationship("Team", back_populates="workspaces")
+
+    __table_args__ = (Index("ix_workspaces_team_id", "team_id"),)
 
 
 class ApiKey(Base):
@@ -21,6 +62,10 @@ class ApiKey(Base):
 
     sources = relationship("Source", back_populates="owner", cascade="all, delete-orphan")
     reports = relationship("Report", back_populates="owner", cascade="all, delete-orphan")
+    membership = relationship("TeamMembership", back_populates="api_key", uselist=False)
+    schedules = relationship("ScanSchedule", back_populates="creator", cascade="all, delete-orphan")
+    notification_channels = relationship("NotificationChannel", back_populates="owner", cascade="all, delete-orphan")
+    sharepoint_connections = relationship("SharePointConnection", back_populates="owner", cascade="all, delete-orphan")
 
     __table_args__ = (Index("ix_api_keys_key_prefix", "key_prefix"),)
 
@@ -29,6 +74,7 @@ class Source(Base):
     __tablename__ = "sources"
 
     id = Column(String(36), primary_key=True)
+    workspace_id = Column(String(36), ForeignKey("workspaces.id"), nullable=True, index=True)
     name = Column(String(255), nullable=False)
     source_type = Column(String(50), nullable=False)
     config_encrypted = Column(Text, nullable=False, default="")
@@ -45,13 +91,16 @@ class Source(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     owner = relationship("ApiKey", back_populates="sources")
+    workspace = relationship("Workspace")
     scan_runs = relationship("ScanRun", back_populates="source", cascade="all, delete-orphan")
+
 
 
 class ScanRun(Base):
     __tablename__ = "scan_runs"
 
     id = Column(String(36), primary_key=True)
+    workspace_id = Column(String(36), ForeignKey("workspaces.id"), nullable=True, index=True)
     source_id = Column(String(36), ForeignKey("sources.id"), nullable=False)
     status = Column(String(20), default="pending")
     started_at = Column(DateTime)
@@ -64,12 +113,15 @@ class ScanRun(Base):
     suggested_fix = Column(Text)
 
     source = relationship("Source", back_populates="scan_runs")
+    workspace = relationship("Workspace")
+
 
 
 class RawItem(Base):
     __tablename__ = "raw_items"
 
     id = Column(String(36), primary_key=True)
+    workspace_id = Column(String(36), ForeignKey("workspaces.id"), nullable=True, index=True)
     source_id = Column(String(36), ForeignKey("sources.id"), nullable=False, index=True)
     url = Column(Text, nullable=False)
     title = Column(Text)
@@ -87,17 +139,23 @@ class RawItem(Base):
     overall_score = Column(Float)
 
     source = relationship("Source")
+    workspace = relationship("Workspace")
+
 
 
 class ScoringProfile(Base):
     __tablename__ = "scoring_profiles"
 
     id = Column(String(36), primary_key=True)
+    workspace_id = Column(String(36), ForeignKey("workspaces.id"), nullable=True, index=True)
     name = Column(String(255), nullable=False)
     is_default = Column(Boolean, default=False)
     dimensions = Column(JSON, default=list)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    workspace = relationship("Workspace")
+
 
 
 class LlmProvider(Base):
@@ -117,6 +175,7 @@ class Report(Base):
     __tablename__ = "reports"
 
     id = Column(String(36), primary_key=True)
+    workspace_id = Column(String(36), ForeignKey("workspaces.id"), nullable=True, index=True)
     owner_id = Column(String(36), ForeignKey("api_keys.id"), nullable=False)
     title = Column(String(500))
     report_type = Column(String(50), default="pdf")
@@ -127,3 +186,5 @@ class Report(Base):
     metadata_json = Column(JSON, default=dict)
 
     owner = relationship("ApiKey", back_populates="reports")
+    workspace = relationship("Workspace")
+

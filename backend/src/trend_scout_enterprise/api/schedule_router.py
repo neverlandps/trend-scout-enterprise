@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.core.database import get_db
-from trend_scout_enterprise.core.security import hash_api_key, verify_api_key
-from trend_scout_enterprise.models.models import ApiKey
+from trend_scout_enterprise.core.dependencies import get_current_api_key, get_current_workspace
+from trend_scout_enterprise.models.models import ApiKey, Workspace
 from trend_scout_enterprise.schemas.schedule import (
     NotificationChannelIn,
     NotificationChannelOut,
@@ -19,45 +19,34 @@ from trend_scout_enterprise.services.schedule_service import ScheduleService
 router = APIRouter()
 
 
-def _resolve_owner(x_api_key: str, db: Session) -> ApiKey:
-    key_hash = hash_api_key(x_api_key)
-    owner = db.query(ApiKey).filter(ApiKey.key_hash == key_hash, ApiKey.is_active == True).first()
-    if not owner:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
-    return owner
-
-
 @router.post("/schedules", response_model=ScanScheduleOut)
 def create_schedule(
     request: ScanScheduleIn,
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ) -> ScanScheduleOut:
-    """Create or update a scan schedule for a source."""
-    owner = _resolve_owner(x_api_key, db)
+    """Create or update a scan schedule for a source in the current workspace."""
     from trend_scout_enterprise.models.models import Source
 
-    source = db.query(Source).filter(Source.id == request.source_id, Source.owner_id == owner.id).first()
+    source = db.query(Source).filter(Source.id == request.source_id, Source.workspace_id == workspace.id).first()
     if not source:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source not found")
     svc = ScheduleService(db)
-    schedule = svc.create_or_update(request)
+    schedule = svc.create_or_update(request, workspace_id=workspace.id)
     return schedule
 
 
 @router.get("/schedules", response_model=list[ScanScheduleOut])
 def list_schedules(
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ) -> list[ScanScheduleOut]:
-    """List all schedules owned by the authenticated API key."""
-    owner = _resolve_owner(x_api_key, db)
-    from trend_scout_enterprise.models.models import Source
-
+    """List all schedules in the current workspace."""
     schedules = (
         db.query(ScheduleService._model)
-        .join(Source)
-        .filter(Source.owner_id == owner.id)
+        .filter(ScheduleService._model.workspace_id == workspace.id)
         .all()
     )
     return schedules
@@ -67,13 +56,13 @@ def list_schedules(
 def delete_schedule(
     schedule_id: str,
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ) -> dict:
-    """Delete a scan schedule."""
-    owner = _resolve_owner(x_api_key, db)
+    """Delete a scan schedule in the current workspace."""
     svc = ScheduleService(db)
     try:
-        svc.delete(schedule_id, owner.id)
+        svc.delete(schedule_id, workspace_id=workspace.id)
         return {"detail": "Schedule deleted"}
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
@@ -83,13 +72,14 @@ def delete_schedule(
 def create_channel(
     request: NotificationChannelIn,
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ) -> NotificationChannelOut:
-    """Create a notification channel."""
-    owner = _resolve_owner(x_api_key, db)
+    """Create a notification channel in the current workspace."""
     svc = NotificationService(db)
     channel = svc.create_channel(
-        owner_id=owner.id,
+        owner_id=api_key.id,
+        workspace_id=workspace.id,
         channel_type=request.channel_type,
         name=request.name,
         config=request.config,
@@ -102,25 +92,25 @@ def create_channel(
 @router.get("/notifications/channels", response_model=list[NotificationChannelOut])
 def list_channels(
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ) -> list[NotificationChannelOut]:
-    """List all notification channels."""
-    owner = _resolve_owner(x_api_key, db)
+    """List all notification channels in the current workspace."""
     svc = NotificationService(db)
-    return svc.list_channels(owner.id)
+    return svc.list_channels(workspace_id=workspace.id)
 
 
 @router.delete("/notifications/channels/{channel_id}")
 def delete_channel(
     channel_id: str,
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ) -> dict:
-    """Delete a notification channel."""
-    owner = _resolve_owner(x_api_key, db)
+    """Delete a notification channel in the current workspace."""
     svc = NotificationService(db)
     try:
-        svc.delete_channel(owner.id, channel_id)
+        svc.delete_channel(workspace_id=workspace.id, channel_id=channel_id)
         return {"detail": "Channel deleted"}
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
@@ -129,14 +119,14 @@ def delete_channel(
 @router.get("/notifications/logs", response_model=list[NotificationLogOut])
 def list_logs(
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ) -> list[NotificationLogOut]:
-    """List notification logs for the authenticated owner."""
-    owner = _resolve_owner(x_api_key, db)
+    """List notification logs in the current workspace."""
     logs = (
         db.query(NotificationLog)
         .join(NotificationChannel)
-        .filter(NotificationChannel.owner_id == owner.id)
+        .filter(NotificationChannel.workspace_id == workspace.id)
         .order_by(NotificationLog.sent_at.desc())
         .limit(100)
         .all()

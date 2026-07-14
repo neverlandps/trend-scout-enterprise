@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     celery_result_backend: str = "redis://localhost:6379/0"
     secret_key: str = "change-me-in-production"
     api_key_header: str = "X-API-Key"
+    workspace_id_header: str = "X-Workspace-ID"
     jwt_algorithm: str = "HS256"
     jwt_expiration_minutes: int = 60
     entra_dummy_mode: bool = False

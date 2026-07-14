@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from trend_scout_enterprise.models.models import ApiKey, Source
+from trend_scout_enterprise.models.models import ApiKey, Source, TeamMembership, Workspace
 from trend_scout_enterprise.models.schedule import ScanSchedule
 from trend_scout_enterprise.workers.beat_scheduler import enqueue_scheduled_scans
 
@@ -10,16 +10,38 @@ TEST_OWNER_ID = "test-key-id"
 
 @pytest.fixture
 def schedule_source(test_db) -> Source:
+    membership = test_db.query(TeamMembership).filter(TeamMembership.api_key_id == TEST_OWNER_ID).first()
+    workspace = test_db.query(Workspace).filter(
+        Workspace.team_id == membership.team_id, Workspace.is_default == True
+    ).first()
     source = Source(
         id="source-sched-1",
         name="Sched Source",
         source_type="rss",
         config_encrypted="",
         owner_id=TEST_OWNER_ID,
+        workspace_id=workspace.id,
     )
     test_db.add(source)
     test_db.commit()
     return source
+
+
+@pytest.fixture
+def schedule_in_workspace(test_db, schedule_source) -> tuple[str, ScanSchedule]:
+    """Create a schedule in the test workspace."""
+    workspace_id = schedule_source.workspace_id
+    schedule = ScanSchedule(
+        id="sched-2",
+        workspace_id=workspace_id,
+        source_id=schedule_source.id,
+        cron_expression="0 8 * * *",
+        timezone="UTC",
+        is_enabled=1,
+    )
+    test_db.add(schedule)
+    test_db.commit()
+    return workspace_id, schedule
 
 
 def test_create_schedule(client, schedule_source):
@@ -44,21 +66,8 @@ def test_create_schedule_source_not_found(client):
     assert response.status_code == 404
 
 
-def test_list_schedules(client, schedule_source):
-    schedule = ScanSchedule(
-        id="sched-2",
-        source_id=schedule_source.id,
-        cron_expression="0 8 * * *",
-        timezone="UTC",
-        is_enabled=1,
-    )
-    client.app.dependency_overrides  # ensure app is wired
-    from trend_scout_enterprise.core.database import get_db
-
-    db = client.app.dependency_overrides[get_db]()
-    db.add(schedule)
-    db.commit()
-
+def test_list_schedules(client, schedule_in_workspace):
+    workspace_id, schedule = schedule_in_workspace
     response = client.get("/api/v1/schedules")
     assert response.status_code == 200
     data = response.json()
@@ -66,22 +75,13 @@ def test_list_schedules(client, schedule_source):
     assert data[0]["id"] == "sched-2"
 
 
-def test_delete_schedule(client, schedule_source):
-    schedule = ScanSchedule(
-        id="sched-3",
-        source_id=schedule_source.id,
-        cron_expression="0 8 * * *",
-        timezone="UTC",
-        is_enabled=1,
-    )
+def test_delete_schedule(client, schedule_in_workspace):
+    workspace_id, schedule = schedule_in_workspace
+    response = client.delete(f"/api/v1/schedules/{schedule.id}")
+    assert response.status_code == 200
     from trend_scout_enterprise.core.database import get_db
 
     db = client.app.dependency_overrides[get_db]()
-    db.add(schedule)
-    db.commit()
-
-    response = client.delete(f"/api/v1/schedules/{schedule.id}")
-    assert response.status_code == 200
     assert db.query(ScanSchedule).filter(ScanSchedule.id == schedule.id).first() is None
 
 
@@ -125,20 +125,12 @@ def test_list_notification_channels(client):
     assert data[0]["channel_type"] == "teams_webhook"
 
 
-def test_enqueue_scheduled_scans(client, schedule_source, monkeypatch):
-    source_id = schedule_source.id
-    schedule = ScanSchedule(
-        id="sched-4",
-        source_id=schedule_source.id,
-        cron_expression="0 8 * * *",
-        timezone="UTC",
-        is_enabled=1,
-    )
+def test_enqueue_scheduled_scans(client, schedule_in_workspace, monkeypatch):
+    workspace_id, schedule = schedule_in_workspace
+    source_id = schedule.source_id
     from trend_scout_enterprise.core.database import get_db
 
     db = client.app.dependency_overrides[get_db]()
-    db.add(schedule)
-    db.commit()
 
     # Monkeypatch beat scheduler to use the test DB and disable run_scan
     monkeypatch.setattr(

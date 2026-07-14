@@ -39,7 +39,7 @@ def generate_pdf_report(db: Session, report: Report) -> str:
     item_ids = report.metadata_json.get("item_ids", [])
     filters = report.metadata_json.get("filters", {})
 
-    query = db.query(RawItem).join(Source).filter(Source.owner_id == report.owner_id)
+    query = db.query(RawItem).filter(RawItem.workspace_id == report.workspace_id)
     if item_ids:
         query = query.filter(RawItem.id.in_(item_ids))
     if filters.get("min_score") is not None:

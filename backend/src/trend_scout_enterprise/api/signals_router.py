@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.core.database import get_db
-from trend_scout_enterprise.core.security import hash_api_key, verify_api_key
-from trend_scout_enterprise.models.models import ApiKey, LlmProvider, RawItem, Source
+from trend_scout_enterprise.core.dependencies import get_current_api_key, get_current_workspace
+from trend_scout_enterprise.models.models import ApiKey, LlmProvider, RawItem, Source, Workspace
 from trend_scout_enterprise.schemas import (
     RawItemOut,
     SignalAnalyzeOut,
@@ -17,15 +17,6 @@ from trend_scout_enterprise.services.llm_service import LlmService
 from trend_scout_enterprise.core.encryption import decrypt_value
 
 router = APIRouter()
-
-
-def _resolve_owner(x_api_key: str, db: Session) -> ApiKey:
-    """Resolve a plaintext API key to an ApiKey entity."""
-    key_hash = hash_api_key(x_api_key)
-    owner = db.query(ApiKey).filter(ApiKey.key_hash == key_hash, ApiKey.is_active == True).first()
-    if not owner:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
-    return owner
 
 
 def _get_default_llm_service(db: Session) -> LlmService:
@@ -58,11 +49,11 @@ def list_signals(
     limit: int = 100,
     offset: int = 0,
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ) -> SignalListOut:
-    """List raw signals owned by the authenticated API key."""
-    owner = _resolve_owner(x_api_key, db)
-    query = db.query(RawItem).join(Source).filter(Source.owner_id == owner.id)
+    """List raw signals in the current workspace."""
+    query = db.query(RawItem).filter(RawItem.workspace_id == workspace.id)
     if source_id:
         query = query.filter(RawItem.source_id == source_id)
     if min_score is not None:
@@ -81,14 +72,13 @@ def list_signals(
 def get_signal(
     signal_id: str,
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ) -> RawItemOut:
-    """Retrieve a single signal by ID."""
-    owner = _resolve_owner(x_api_key, db)
+    """Retrieve a single signal by ID in the current workspace."""
     signal = (
         db.query(RawItem)
-        .join(Source)
-        .filter(RawItem.id == signal_id, Source.owner_id == owner.id)
+        .filter(RawItem.id == signal_id, RawItem.workspace_id == workspace.id)
         .first()
     )
     if not signal:
@@ -100,14 +90,13 @@ def get_signal(
 async def analyze_signals(
     request: SignalAnalyzeRequest,
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ) -> SignalAnalyzeOut:
     """Analyze selected signals using the configured LLM provider."""
-    owner = _resolve_owner(x_api_key, db)
     items = (
         db.query(RawItem)
-        .join(Source)
-        .filter(RawItem.id.in_(request.item_ids), Source.owner_id == owner.id)
+        .filter(RawItem.id.in_(request.item_ids), RawItem.workspace_id == workspace.id)
         .all()
     )
     if not items:

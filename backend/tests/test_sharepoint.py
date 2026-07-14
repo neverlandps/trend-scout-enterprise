@@ -151,8 +151,7 @@ class TestSharePointUpload:
         conn_id = conn_resp.json()["id"]
 
         # Create a real report with a file path
-        from trend_scout_enterprise.models.models import Report
-        from uuid import uuid4
+        from trend_scout_enterprise.models.models import Report, TeamMembership, Workspace
         from pathlib import Path
         import tempfile
 
@@ -160,8 +159,14 @@ class TestSharePointUpload:
         Path(report_path).write_bytes(b"fake pdf")
         os.close(fd)
 
+        membership = test_db.query(TeamMembership).filter(TeamMembership.api_key_id == "test-key-id").first()
+        workspace = test_db.query(Workspace).filter(
+            Workspace.team_id == membership.team_id, Workspace.is_default == True
+        ).first()
+
         report = Report(
             id="report-123",
+            workspace_id=workspace.id,
             owner_id="test-key-id",
             title="Test Report",
             report_type="pdf",

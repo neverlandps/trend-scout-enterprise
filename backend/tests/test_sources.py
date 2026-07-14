@@ -10,6 +10,7 @@ from trend_scout_enterprise.core.security import generate_api_key
 from trend_scout_enterprise.main import app
 from trend_scout_enterprise.models.models import ApiKey, Source
 from trend_scout_enterprise.schemas.schemas import SourceCreate, SourceUpdate
+from trend_scout_enterprise.services.workspace_service import get_or_create_default_team_workspace
 from trend_scout_enterprise.services.source_service import (
     create_source,
     delete_source,
@@ -49,6 +50,7 @@ def _create_owner(db) -> ApiKey:
     db.add(owner)
     db.commit()
     db.refresh(owner)
+    get_or_create_default_team_workspace(db, owner)
     return owner, plaintext
 
 
@@ -75,7 +77,7 @@ def test_create_source():
     db = next(override_get_db())
     owner, _ = _create_owner(db)
     source = SourceCreate(name="Test RSS", source_type="rss", config={"url": "http://example.com/rss"})
-    db_source = create_source(db, source, owner)
+    db_source = create_source(db, source, owner, owner.workspace_id if getattr(owner, "workspace_id", None) else None)
     assert db_source.name == "Test RSS"
     assert db_source.source_type == "rss"
     assert db_source.owner_id == owner.id
@@ -85,32 +87,32 @@ def test_get_source_not_found():
     db = next(override_get_db())
     owner, _ = _create_owner(db)
     with pytest.raises(Exception) as exc_info:
-        get_source(db, "non-existent-id", owner)
+        get_source(db, "non-existent-id", owner, None)
     assert "404" in str(exc_info.value) or "not found" in str(exc_info.value).lower()
 
 
 def test_list_sources():
     db = next(override_get_db())
     owner, _ = _create_owner(db)
-    create_source(db, SourceCreate(name="A", source_type="rss", config={"url": "http://a.com"}), owner)
-    create_source(db, SourceCreate(name="B", source_type="arxiv", config={"url": "http://b.com"}), owner)
-    sources = list_sources(db, owner)
+    create_source(db, SourceCreate(name="A", source_type="rss", config={"url": "http://a.com"}), owner, owner.workspace_id if getattr(owner, "workspace_id", None) else None)
+    create_source(db, SourceCreate(name="B", source_type="arxiv", config={"url": "http://b.com"}), owner, owner.workspace_id if getattr(owner, "workspace_id", None) else None)
+    sources = list_sources(db, owner, None)
     assert len(sources) == 2
 
 
 def test_update_source():
     db = next(override_get_db())
     owner, _ = _create_owner(db)
-    db_source = create_source(db, SourceCreate(name="Old", source_type="rss", config={"url": "http://old.com"}), owner)
-    updated = update_source(db, db_source.id, SourceUpdate(name="New"), owner)
+    db_source = create_source(db, SourceCreate(name="Old", source_type="rss", config={"url": "http://old.com"}), owner, owner.workspace_id if getattr(owner, "workspace_id", None) else None)
+    updated = update_source(db, db_source.id, SourceUpdate(name="New"), owner, None)
     assert updated.name == "New"
 
 
 def test_delete_source():
     db = next(override_get_db())
     owner, _ = _create_owner(db)
-    db_source = create_source(db, SourceCreate(name="Del", source_type="rss", config={"url": "http://del.com"}), owner)
-    delete_source(db, db_source.id, owner)
+    db_source = create_source(db, SourceCreate(name="Del", source_type="rss", config={"url": "http://del.com"}), owner, owner.workspace_id if getattr(owner, "workspace_id", None) else None)
+    delete_source(db, db_source.id, owner, None)
     assert db.query(Source).filter(Source.id == db_source.id).first() is None
 
 

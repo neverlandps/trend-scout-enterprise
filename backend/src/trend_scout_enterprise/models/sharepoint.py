@@ -1,4 +1,5 @@
-from sqlalchemy import Column, String, Text, Boolean, DateTime
+from sqlalchemy import Column, String, Text, Boolean, DateTime, ForeignKey, Index
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from trend_scout_enterprise.core.database import Base
@@ -8,6 +9,7 @@ class SharePointConnection(Base):
     __tablename__ = "sharepoint_connections"
 
     id = Column(String(36), primary_key=True)
+    workspace_id = Column(String(36), ForeignKey("workspaces.id"), nullable=True, index=True)
     name = Column(String(255), nullable=False)
     site_id = Column(String(255))
     site_url = Column(Text)
@@ -20,6 +22,11 @@ class SharePointConnection(Base):
     is_default = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    owner_id = Column(String(36), ForeignKey("api_keys.id"), nullable=False)
+
+    owner = relationship("ApiKey", back_populates="sharepoint_connections")
+    workspace = relationship("Workspace")
+
 
 
 class SharePointUploadRecord(Base):

@@ -1,5 +1,5 @@
-from fastapi import FastAPI
 from contextlib import asynccontextmanager
+from fastapi import FastAPI
 from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.api import (
@@ -12,15 +12,18 @@ from trend_scout_enterprise.api import (
     settings_router,
     signals_router,
     sharepoint_router,
+    workspace_router,
 )
 from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.core.database import engine, Base, SessionLocal
 from trend_scout_enterprise.core.security import get_or_create_default_api_key
 from trend_scout_enterprise.models import LlmProvider, ScoringProfile, ApiKey
+from trend_scout_enterprise.models.models import Team, TeamMembership, Workspace
 from trend_scout_enterprise.models.auth import MicrosoftAuthConfig, UserSession
 from trend_scout_enterprise.models.sharepoint import SharePointConnection, SharePointUploadRecord
 from trend_scout_enterprise.core.encryption import encrypt_value
 from trend_scout_enterprise.services.scoring_service import get_default_dimensions
+from trend_scout_enterprise.services.workspace_service import get_or_create_default_team_workspace
 
 
 @asynccontextmanager
@@ -35,8 +38,11 @@ async def lifespan(app: FastAPI):
 
 
 def _seed_defaults(db: Session) -> None:
-    """Seed default API key, LLM provider, and scoring profile if tables are empty."""
-    get_or_create_default_api_key(db)
+    """Seed default API key, LLM provider, scoring profile, and workspace."""
+    api_key = get_or_create_default_api_key(db)
+
+    # Ensure a default team/workspace exists for the default API key
+    get_or_create_default_team_workspace(db, api_key)
 
     if not db.query(LlmProvider).first():
         default_llm = LlmProvider(
@@ -72,6 +78,7 @@ app = FastAPI(
 
 app.include_router(health_router, prefix="/api/v1", tags=["health"])
 app.include_router(auth_router, prefix="/api/v1", tags=["auth"])
+app.include_router(workspace_router, prefix="/api/v1", tags=["workspaces"])
 app.include_router(sources_router, prefix="/api/v1", tags=["sources"])
 app.include_router(scans_router, prefix="/api/v1", tags=["scans"])
 app.include_router(signals_router, prefix="/api/v1", tags=["signals"])

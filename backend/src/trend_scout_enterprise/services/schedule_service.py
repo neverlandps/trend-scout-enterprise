@@ -18,7 +18,7 @@ class ScheduleService:
     def __init__(self, db: Session):
         self.db = db
 
-    def create_or_update(self, request) -> ScanSchedule:
+    def create_or_update(self, request, workspace_id: str | None = None) -> ScanSchedule:
         """Create or replace a schedule for a source."""
         existing = (
             self.db.query(ScanSchedule)
@@ -39,7 +39,9 @@ class ScheduleService:
 
         schedule = ScanSchedule(
             id=uuid4().hex,
+            workspace_id=workspace_id,
             source_id=request.source_id,
+            creator_id=getattr(request, "creator_id", None),
             cron_expression=request.cron_expression,
             timezone=request.timezone,
             is_enabled=1 if request.is_enabled else 0,
@@ -50,13 +52,14 @@ class ScheduleService:
         self.db.refresh(schedule)
         return schedule
 
-    def delete(self, schedule_id: str, owner_id: str) -> None:
+    def delete(self, schedule_id: str, workspace_id: str | None = None) -> None:
         schedule = (
             self.db.query(ScanSchedule)
-            .join(Source)
-            .filter(ScanSchedule.id == schedule_id, Source.owner_id == owner_id)
+            .filter(ScanSchedule.id == schedule_id)
             .first()
         )
+        if schedule and workspace_id is not None and schedule.workspace_id != workspace_id:
+            schedule = None
         if not schedule:
             raise ValueError("Schedule not found")
         self.db.delete(schedule)

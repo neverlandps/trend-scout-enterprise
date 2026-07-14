@@ -14,11 +14,13 @@ class SharePointService:
     def __init__(self, db: Session):
         self.db = db
 
-    def create_connection(self, payload: dict) -> SharePointConnection:
+    def create_connection(self, payload: dict, workspace_id: str | None = None, owner_id: str | None = None) -> SharePointConnection:
         from uuid import uuid4
 
         connection = SharePointConnection(
             id=uuid4().hex,
+            workspace_id=workspace_id,
+            owner_id=owner_id,
             name=payload["name"],
             site_id=payload.get("site_id"),
             site_url=payload.get("site_url"),
@@ -35,13 +37,19 @@ class SharePointService:
         self.db.refresh(connection)
         return connection
 
-    def list_connections(self) -> list[SharePointConnection]:
-        return self.db.query(SharePointConnection).order_by(SharePointConnection.created_at.desc()).all()
+    def list_connections(self, workspace_id: str | None = None) -> list[SharePointConnection]:
+        q = self.db.query(SharePointConnection)
+        if workspace_id is not None:
+            q = q.filter(SharePointConnection.workspace_id == workspace_id)
+        return q.order_by(SharePointConnection.created_at.desc()).all()
 
-    def get_connection(self, connection_id: str) -> SharePointConnection | None:
-        return self.db.query(SharePointConnection).filter_by(id=connection_id).first()
+    def get_connection(self, connection_id: str, workspace_id: str | None = None) -> SharePointConnection | None:
+        q = self.db.query(SharePointConnection).filter_by(id=connection_id)
+        if workspace_id is not None:
+            q = q.filter(SharePointConnection.workspace_id == workspace_id)
+        return q.first()
 
-    def update_connection(self, connection: SharePointConnection, payload: dict) -> SharePointConnection:
+    def update_connection(self, connection: SharePointConnection, payload: dict, workspace_id: str | None = None) -> SharePointConnection:
         for key in ["name", "site_id", "site_url", "list_id", "drive_id", "tenant_id", "client_id", "is_enabled", "is_default"]:
             if key in payload:
                 setattr(connection, key, payload[key])

@@ -6,6 +6,9 @@ from trend_scout_enterprise.models.models import (
     ScanRun,
     ScoringProfile,
     Source,
+    Team,
+    TeamMembership,
+    Workspace,
 )
 from trend_scout_enterprise.models.auth import (
     MicrosoftAuthConfig,
@@ -35,5 +38,8 @@ __all__ = [
     "SharePointConnection",
     "SharePointUploadRecord",
     "Source",
+    "Team",
+    "TeamMembership",
     "UserSession",
+    "Workspace",
 ]

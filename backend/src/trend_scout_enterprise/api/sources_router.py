@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.core.database import get_db
-from trend_scout_enterprise.core.security import hash_api_key, verify_api_key
-from trend_scout_enterprise.models.models import ApiKey
+from trend_scout_enterprise.core.dependencies import get_current_api_key, get_current_workspace
+from trend_scout_enterprise.models.models import ApiKey, Workspace
 from trend_scout_enterprise.schemas import (
     ScannerTypeOut,
     SourceCreate,
@@ -20,26 +20,14 @@ from trend_scout_enterprise.services import source_service
 router = APIRouter()
 
 
-def _resolve_owner(x_api_key: str, db: Session) -> ApiKey:
-    """Resolve a plaintext API key to an ApiKey entity."""
-    key_hash = hash_api_key(x_api_key)
-    owner = db.query(ApiKey).filter(ApiKey.key_hash == key_hash, ApiKey.is_active == True).first()
-    if not owner:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
-    owner.last_used_at = __import__("datetime").datetime.utcnow()
-    db.commit()
-    db.refresh(owner)
-    return owner
-
-
 @router.get("/sources", response_model=SourceListOut)
 def list_sources(
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ) -> SourceListOut:
-    """List all signal sources owned by the authenticated API key."""
-    owner = _resolve_owner(x_api_key, db)
-    sources = source_service.list_sources(db, owner)
+    """List all signal sources in the current workspace."""
+    sources = source_service.list_sources(db, workspace_id=workspace.id)
     return SourceListOut(sources=[source_service.source_to_schema(s) for s in sources])
 
 
@@ -47,17 +35,17 @@ def list_sources(
 def create_source(
     source: SourceCreate,
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ) -> SourceOut:
-    """Create a new signal source."""
-    owner = _resolve_owner(x_api_key, db)
-    db_source = source_service.create_source(db, source, owner)
+    """Create a new signal source in the current workspace."""
+    db_source = source_service.create_source(db, source, api_key, workspace.id)
     return source_service.source_to_schema(db_source)
 
 
 @router.get("/sources/scanner-types", response_model=ScannerTypeOut)
 def scanner_types(
-    _: str = Depends(verify_api_key),
+    _: ApiKey = Depends(get_current_api_key),
 ) -> ScannerTypeOut:
     """Return the list of supported source/scanner types."""
     return ScannerTypeOut(scanner_types=list_scanner_types())
@@ -67,11 +55,11 @@ def scanner_types(
 def get_source(
     source_id: str,
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ) -> SourceOut:
-    """Retrieve a single source by ID."""
-    owner = _resolve_owner(x_api_key, db)
-    db_source = source_service.get_source(db, source_id, owner)
+    """Retrieve a single source by ID in the current workspace."""
+    db_source = source_service.get_source(db, source_id, workspace_id=workspace.id)
     return source_service.source_to_schema(db_source)
 
 
@@ -80,11 +68,11 @@ def update_source(
     source_id: str,
     source: SourceUpdate,
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ) -> SourceOut:
-    """Update an existing source."""
-    owner = _resolve_owner(x_api_key, db)
-    db_source = source_service.update_source(db, source_id, source, owner)
+    """Update an existing source in the current workspace."""
+    db_source = source_service.update_source(db, source_id, source, workspace_id=workspace.id)
     return source_service.source_to_schema(db_source)
 
 
@@ -92,22 +80,22 @@ def update_source(
 def delete_source(
     source_id: str,
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ) -> None:
-    """Delete a source by ID."""
-    owner = _resolve_owner(x_api_key, db)
-    source_service.delete_source(db, source_id, owner)
+    """Delete a source by ID in the current workspace."""
+    source_service.delete_source(db, source_id, workspace_id=workspace.id)
 
 
 @router.get("/sources/{source_id}/health", response_model=SourceHealthOut)
 def get_source_health(
     source_id: str,
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ) -> SourceHealthOut:
-    """Retrieve the health status of a source."""
-    owner = _resolve_owner(x_api_key, db)
-    db_source = source_service.get_source(db, source_id, owner)
+    """Retrieve the health status of a source in the current workspace."""
+    db_source = source_service.get_source(db, source_id, workspace_id=workspace.id)
     return SourceHealthOut(
         source_id=db_source.id,
         health_status=db_source.health_status,

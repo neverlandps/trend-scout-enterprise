@@ -5,6 +5,7 @@ import { ScansPage } from './pages/ScansPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { LoginPage } from './pages/LoginPage'
+import { TeamPage } from './pages/TeamPage'
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
           <Route path="scans" element={<ScansPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="team" element={<TeamPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

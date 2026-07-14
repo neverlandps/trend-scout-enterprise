@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.core.database import get_db
 from trend_scout_enterprise.core.encryption import encrypt_value
-from trend_scout_enterprise.core.security import hash_api_key, verify_api_key
-from trend_scout_enterprise.models.models import ApiKey, LlmProvider, ScoringProfile
+from trend_scout_enterprise.core.dependencies import get_current_api_key, get_current_workspace
+from trend_scout_enterprise.models.models import ApiKey, LlmProvider, ScoringProfile, Workspace
 from trend_scout_enterprise.schemas import (
     LlmProviderCreate,
     LlmProviderOut,
@@ -21,22 +21,12 @@ from trend_scout_enterprise.services.scoring_service import validate_dimensions
 router = APIRouter()
 
 
-def _resolve_owner(x_api_key: str, db: Session) -> ApiKey:
-    """Resolve a plaintext API key to an ApiKey entity."""
-    key_hash = hash_api_key(x_api_key)
-    owner = db.query(ApiKey).filter(ApiKey.key_hash == key_hash, ApiKey.is_active == True).first()
-    if not owner:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
-    return owner
-
-
 @router.get("/settings/llm", response_model=LlmSettingsOut)
 def get_llm_settings(
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
 ) -> LlmSettingsOut:
     """Return the active LLM settings from the default provider."""
-    _resolve_owner(x_api_key, db)
     provider = db.query(LlmProvider).filter(LlmProvider.is_default == True).first()
     if provider:
         return LlmSettingsOut(
@@ -57,10 +47,9 @@ def get_llm_settings(
 def update_llm_settings(
     payload: LlmSettingsUpdate,
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
 ) -> LlmSettingsOut:
     """Update the default LLM provider settings."""
-    _resolve_owner(x_api_key, db)
     provider = db.query(LlmProvider).filter(LlmProvider.is_default == True).first()
     if not provider:
         raise HTTPException(
@@ -69,9 +58,9 @@ def update_llm_settings(
         )
     update_data = payload.model_dump(exclude_unset=True)
     if "api_key" in update_data:
-        api_key = update_data.pop("api_key")
-        if api_key:
-            provider.api_key_encrypted = encrypt_value(api_key)
+        new_key = update_data.pop("api_key")
+        if new_key:
+            provider.api_key_encrypted = encrypt_value(new_key)
     for field, value in update_data.items():
         setattr(provider, field, value)
     db.commit()
@@ -87,10 +76,9 @@ def update_llm_settings(
 @router.get("/settings/llm/providers", response_model=list[LlmProviderOut])
 def list_llm_providers(
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
 ) -> list[LlmProviderOut]:
     """List all LLM providers with masked API keys."""
-    _resolve_owner(x_api_key, db)
     providers = db.query(LlmProvider).all()
     return [
         LlmProviderOut(
@@ -115,10 +103,9 @@ def list_llm_providers(
 def create_llm_provider(
     payload: LlmProviderCreate,
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
 ) -> LlmProviderOut:
     """Create a new LLM provider."""
-    _resolve_owner(x_api_key, db)
     import uuid
 
     if payload.is_default:
@@ -151,11 +138,13 @@ def create_llm_provider(
 @router.get("/settings/scoring", response_model=ScoringSettingsOut)
 def get_scoring_settings(
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ) -> ScoringSettingsOut:
-    """Return the active scoring dimensions from the default profile."""
-    _resolve_owner(x_api_key, db)
-    profile = db.query(ScoringProfile).filter(ScoringProfile.is_default == True).first()
+    """Return the active scoring dimensions from the workspace default profile."""
+    profile = db.query(ScoringProfile).filter(
+        ScoringProfile.is_default == True, ScoringProfile.workspace_id == workspace.id
+    ).first()
     if profile and profile.dimensions:
         return ScoringSettingsOut(dimensions=profile.dimensions)
     return ScoringSettingsOut(
@@ -173,11 +162,13 @@ def get_scoring_settings(
 def update_scoring_settings(
     payload: ScoringSettingsUpdate,
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ) -> ScoringSettingsOut:
-    """Update the default scoring profile dimensions."""
-    _resolve_owner(x_api_key, db)
-    profile = db.query(ScoringProfile).filter(ScoringProfile.is_default == True).first()
+    """Update the default scoring profile dimensions for the workspace."""
+    profile = db.query(ScoringProfile).filter(
+        ScoringProfile.is_default == True, ScoringProfile.workspace_id == workspace.id
+    ).first()
     if not profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

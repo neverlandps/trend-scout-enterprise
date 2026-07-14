@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -13,7 +13,9 @@ class ScanSchedule(Base):
     __tablename__ = "scan_schedules"
 
     id = Column(String(36), primary_key=True)
+    workspace_id = Column(String(36), ForeignKey("workspaces.id"), nullable=True, index=True)
     source_id = Column(String(36), ForeignKey("sources.id"), nullable=False, unique=True)
+    creator_id = Column(String(36), ForeignKey("api_keys.id"), nullable=True)
     cron_expression = Column(String(100), nullable=False, default="0 9 * * *")
     timezone = Column(String(50), default="UTC")
     is_enabled = Column(Integer, default=1)
@@ -23,6 +25,9 @@ class ScanSchedule(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     source = relationship("Source")
+    workspace = relationship("Workspace")
+    creator = relationship("ApiKey", back_populates="schedules")
+
 
 
 class NotificationChannel(Base):
@@ -31,6 +36,7 @@ class NotificationChannel(Base):
     __tablename__ = "notification_channels"
 
     id = Column(String(36), primary_key=True)
+    workspace_id = Column(String(36), ForeignKey("workspaces.id"), nullable=True, index=True)
     owner_id = Column(String(36), ForeignKey("api_keys.id"), nullable=False)
     channel_type = Column(String(20), nullable=False)  # email, teams_webhook
     name = Column(String(255), nullable=False)
@@ -41,10 +47,14 @@ class NotificationChannel(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
+    owner = relationship("ApiKey", back_populates="notification_channels")
+    workspace = relationship("Workspace")
+
     @property
     def config(self) -> dict:
         from trend_scout_enterprise.core.encryption import decrypt_dict
         return decrypt_dict(self.config_encrypted) if self.config_encrypted else {}
+
 
 
 class NotificationLog(Base):

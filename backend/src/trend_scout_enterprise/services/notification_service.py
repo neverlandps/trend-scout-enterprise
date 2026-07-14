@@ -77,10 +77,11 @@ class NotificationService:
         return True
 
     def notify_scan_run(self, scan_run: ScanRun) -> None:
-        """Send notifications for a scan run to all enabled channels."""
+        """Send notifications for a scan run to all enabled channels in the workspace."""
+        workspace_id = getattr(scan_run, "workspace_id", None) or getattr(scan_run.source, "workspace_id", None)
         channels = (
             self.db.query(NotificationChannel)
-            .filter(NotificationChannel.owner_id == scan_run.source.owner_id)
+            .filter(NotificationChannel.workspace_id == workspace_id)
             .all()
         )
         for channel in channels:
@@ -114,11 +115,12 @@ class NotificationService:
 
         return uuid4().hex
 
-    def create_channel(self, owner_id: str, channel_type: str, name: str, config: dict, on_success: bool, on_failure: bool) -> NotificationChannel:
+    def create_channel(self, owner_id: str, channel_type: str, name: str, config: dict, on_success: bool, on_failure: bool, workspace_id: str | None = None) -> NotificationChannel:
         from uuid import uuid4
 
         channel = NotificationChannel(
             id=uuid4().hex,
+            workspace_id=workspace_id,
             owner_id=owner_id,
             channel_type=channel_type,
             name=name,
@@ -132,15 +134,20 @@ class NotificationService:
         self.db.refresh(channel)
         return channel
 
-    def list_channels(self, owner_id: str) -> list[NotificationChannel]:
-        return self.db.query(NotificationChannel).filter(NotificationChannel.owner_id == owner_id).all()
+    def list_channels(self, owner_id: str | None = None, workspace_id: str | None = None) -> list[NotificationChannel]:
+        q = self.db.query(NotificationChannel)
+        if workspace_id is not None:
+            q = q.filter(NotificationChannel.workspace_id == workspace_id)
+        elif owner_id is not None:
+            q = q.filter(NotificationChannel.owner_id == owner_id)
+        return q.all()
 
-    def delete_channel(self, owner_id: str, channel_id: str) -> None:
-        channel = (
-            self.db.query(NotificationChannel)
-            .filter(NotificationChannel.owner_id == owner_id, NotificationChannel.id == channel_id)
-            .first()
-        )
+    def delete_channel(self, owner_id: str | None = None, channel_id: str | None = None, workspace_id: str | None = None) -> None:
+        if channel_id is None:
+            raise ValueError("channel_id is required")
+        channel = self.db.query(NotificationChannel).filter(NotificationChannel.id == channel_id).first()
+        if channel and workspace_id is not None and channel.workspace_id != workspace_id:
+            channel = None
         if not channel:
             raise ValueError("Notification channel not found")
         self.db.delete(channel)

@@ -5,21 +5,12 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.core.database import get_db
-from trend_scout_enterprise.core.security import hash_api_key, verify_api_key
-from trend_scout_enterprise.models.models import ApiKey, ScanRun, Source
+from trend_scout_enterprise.core.dependencies import get_current_api_key, get_current_workspace
+from trend_scout_enterprise.models.models import ApiKey, ScanRun, Source, Workspace
 from trend_scout_enterprise.schemas import ScanListOut, ScanRunCreate, ScanRunOut
 from trend_scout_enterprise.workers.scan_worker import run_scan as run_scan_task
 
 router = APIRouter()
-
-
-def _resolve_owner(x_api_key: str, db: Session) -> ApiKey:
-    """Resolve a plaintext API key to an ApiKey entity."""
-    key_hash = hash_api_key(x_api_key)
-    owner = db.query(ApiKey).filter(ApiKey.key_hash == key_hash, ApiKey.is_active == True).first()
-    if not owner:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
-    return owner
 
 
 @router.post("/scans", response_model=ScanRunOut, status_code=status.HTTP_202_ACCEPTED)
@@ -27,22 +18,23 @@ def trigger_scan(
     request: ScanRunCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ) -> ScanRunOut:
-    """Queue a new scan run for a source owned by the authenticated API key."""
-    owner = _resolve_owner(x_api_key, db)
+    """Queue a new scan run for a source in the current workspace."""
     source = db.query(Source).filter(
-        Source.id == request.source_id, Source.owner_id == owner.id
+        Source.id == request.source_id, Source.workspace_id == workspace.id
     ).first()
     if not source:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Source not found or not owned by this API key",
+            detail="Source not found or not in this workspace",
         )
     import uuid
 
     db_scan = ScanRun(
         id=uuid.uuid4().hex,
+        workspace_id=workspace.id,
         source_id=request.source_id,
         status="pending",
         started_at=datetime.utcnow(),
@@ -57,14 +49,13 @@ def trigger_scan(
 @router.get("/scans", response_model=ScanListOut)
 def list_scans(
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ) -> ScanListOut:
-    """List all scan runs for sources owned by the authenticated API key."""
-    owner = _resolve_owner(x_api_key, db)
+    """List all scan runs in the current workspace."""
     scans = (
         db.query(ScanRun)
-        .join(Source)
-        .filter(Source.owner_id == owner.id)
+        .filter(ScanRun.workspace_id == workspace.id)
         .order_by(ScanRun.started_at.desc())
         .all()
     )
@@ -75,16 +66,13 @@ def list_scans(
 def get_scan(
     scan_id: str,
     db: Session = Depends(get_db),
-    x_api_key: str = Depends(verify_api_key),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
 ) -> ScanRunOut:
-    """Retrieve a single scan run by ID."""
-    owner = _resolve_owner(x_api_key, db)
-    db_scan = (
-        db.query(ScanRun)
-        .join(Source)
-        .filter(ScanRun.id == scan_id, Source.owner_id == owner.id)
-        .first()
-    )
+    """Retrieve a single scan run by ID in the current workspace."""
+    db_scan = db.query(ScanRun).filter(
+        ScanRun.id == scan_id, ScanRun.workspace_id == workspace.id
+    ).first()
     if not db_scan:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scan not found")
     return db_scan
