@@ -7,13 +7,19 @@ from trend_scout_enterprise.models.models import (
     ScoringProfile,
     Source,
 )
+from trend_scout_enterprise.models.auth import (
+    MicrosoftAuthConfig,
+    UserSession,
+)
 
 __all__ = [
     "ApiKey",
     "LlmProvider",
+    "MicrosoftAuthConfig",
     "RawItem",
     "Report",
     "ScanRun",
     "ScoringProfile",
     "Source",
+    "UserSession",
 ]

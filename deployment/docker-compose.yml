@@ -1,6 +1,17 @@
 version: "3.8"
 
 services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: trend_scout
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
   redis:
     image: redis:7-alpine
     ports:
@@ -16,7 +27,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=sqlite:///data/trend_scout.db
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://postgres:postgres@postgres:5432/trend_scout}
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -27,6 +38,7 @@ services:
     volumes:
       - app_data:/data
     depends_on:
+      - postgres
       - redis
 
   worker:
@@ -36,7 +48,7 @@ services:
       dockerfile: deployment/Dockerfile
     command: celery -A trend_scout_enterprise.workers.scan_worker worker --loglevel=info
     environment:
-      - DATABASE_URL=sqlite:///data/trend_scout.db
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://postgres:postgres@postgres:5432/trend_scout}
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -45,9 +57,29 @@ services:
     volumes:
       - app_data:/data
     depends_on:
+      - postgres
       - redis
       - backend
 
+  beat:
+    image: ${BACKEND_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/trend-scout-enterprise-backend:main}
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    command: celery -A trend_scout_enterprise.workers.scan_worker beat --loglevel=info
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://postgres:postgres@postgres:5432/trend_scout}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+    volumes:
+      - app_data:/data
+    depends_on:
+      - postgres
+      - redis
+
 volumes:
+  postgres_data:
   redis_data:
   app_data:

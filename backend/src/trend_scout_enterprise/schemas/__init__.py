@@ -29,6 +29,12 @@ from trend_scout_enterprise.schemas.schemas import (
     SourceOut,
     SourceUpdate,
 )
+from trend_scout_enterprise.schemas.auth import (
+    LoginResponse,
+    MicrosoftAuthConfigIn,
+    MicrosoftAuthConfigOut,
+    UserInfo,
+)
 
 __all__ = [
     "ApiKeyCreate",
@@ -39,6 +45,9 @@ __all__ = [
     "LlmProviderOut",
     "LlmSettingsOut",
     "LlmSettingsUpdate",
+    "LoginResponse",
+    "MicrosoftAuthConfigIn",
+    "MicrosoftAuthConfigOut",
     "RawItemOut",
     "ReportCreate",
     "ReportListOut",
@@ -60,4 +69,5 @@ __all__ = [
     "SourceListOut",
     "SourceOut",
     "SourceUpdate",
+    "UserInfo",
 ]

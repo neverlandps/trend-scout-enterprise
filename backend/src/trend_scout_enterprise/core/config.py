@@ -10,6 +10,13 @@ class Settings(BaseSettings):
     celery_result_backend: str = "redis://localhost:6379/0"
     secret_key: str = "change-me-in-production"
     api_key_header: str = "X-API-Key"
+    jwt_algorithm: str = "HS256"
+    jwt_expiration_minutes: int = 60
+    entra_dummy_mode: bool = False
+    entra_tenant_id: str = ""
+    entra_client_id: str = ""
+    entra_client_secret: str = ""
+    entra_redirect_uri: str = "http://localhost:5173/auth/callback"
     llm_default_base_url: str = "https://api.openai.com/v1"
     llm_default_model: str = "gpt-4o-mini"
     output_dir: str = "./outputs"

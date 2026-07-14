@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.api import (
+    auth_router,
     health_router,
     sources_router,
     scans_router,
@@ -13,7 +14,8 @@ from trend_scout_enterprise.api import (
 from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.core.database import engine, Base, SessionLocal
 from trend_scout_enterprise.core.security import get_or_create_default_api_key
-from trend_scout_enterprise.models import LlmProvider, ScoringProfile
+from trend_scout_enterprise.models import LlmProvider, ScoringProfile, ApiKey
+from trend_scout_enterprise.models.auth import MicrosoftAuthConfig, UserSession
 from trend_scout_enterprise.core.encryption import encrypt_value
 from trend_scout_enterprise.services.scoring_service import get_default_dimensions
 
@@ -66,6 +68,7 @@ app = FastAPI(
 )
 
 app.include_router(health_router, prefix="/api/v1", tags=["health"])
+app.include_router(auth_router, prefix="/api/v1", tags=["auth"])
 app.include_router(sources_router, prefix="/api/v1", tags=["sources"])
 app.include_router(scans_router, prefix="/api/v1", tags=["scans"])
 app.include_router(signals_router, prefix="/api/v1", tags=["signals"])
