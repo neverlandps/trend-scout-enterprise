@@ -20,6 +20,11 @@ psycopg2 = pytest.importorskip("psycopg2", reason="psycopg2 not installed; Postg
 @pytest.fixture
 def postgres_engine():
     engine = create_engine(POSTGRES_URL)
+    try:
+        with engine.connect():
+            pass
+    except Exception as exc:
+        pytest.skip(f"PostgreSQL not available at {POSTGRES_URL}: {exc}")
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield engine
