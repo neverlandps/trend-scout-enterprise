@@ -1,6 +1,6 @@
 """Microsoft Graph client credential helper for SharePoint Online."""
 
-import requests
+import httpx
 from typing import Optional
 
 from trend_scout_enterprise.core.encryption import decrypt_value
@@ -20,7 +20,7 @@ def get_access_token(connection: SharePointConnection) -> str:
         "client_secret": decrypt_value(connection.client_secret_encrypted),
         "scope": "https://graph.microsoft.com/.default",
     }
-    response = requests.post(url, data=data, headers=headers, timeout=30)
+    response = httpx.post(url, data=data, headers=headers, timeout=30)
     response.raise_for_status()
     return response.json()["access_token"]
 
@@ -33,13 +33,13 @@ def graph_request(connection: SharePointConnection, path: str, method: str = "GE
         headers["Content-Type"] = "application/json"
     url = f"{GRAPH_BASE}{path}"
 
-    response = requests.request(
+    response = httpx.request(
         method,
         url,
         headers=headers,
         json=json_body,
         params=params,
-        data=binary,
+        content=binary,
         timeout=60,
     )
     response.raise_for_status()
@@ -94,10 +94,10 @@ def check_sharepoint_health(connection: SharePointConnection) -> dict:
     """Validate Graph connection and return health status."""
     try:
         token = get_access_token(connection)
-        response = requests.get(f"{GRAPH_BASE}/me", headers={"Authorization": f"Bearer {token}"}, timeout=10)
+        response = httpx.get(f"{GRAPH_BASE}/me", headers={"Authorization": f"Bearer {token}"}, timeout=10)
         # /me is not available for client credentials; use /sites/root as a smoke test
         if response.status_code in (200, 401, 403, 404):
-            response = requests.get(f"{GRAPH_BASE}/sites/root", headers={"Authorization": f"Bearer {token}"}, timeout=10)
+            response = httpx.get(f"{GRAPH_BASE}/sites/root", headers={"Authorization": f"Bearer {token}"}, timeout=10)
             response.raise_for_status()
         return {"status": "ok", "message": "Microsoft Graph connection successful"}
     except Exception as exc:
