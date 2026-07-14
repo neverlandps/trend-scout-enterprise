@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "trend-scout-enterprise"
 version = "0.1.0"
 description = "AI-powered trend scouting automation for enterprise business teams"
-readme = "../README.md"
+readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "Proprietary"}
 authors = [
