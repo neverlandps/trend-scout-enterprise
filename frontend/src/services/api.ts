@@ -162,6 +162,98 @@ export interface ScoringSettings {
   dimensions: ScoringDimension[]
 }
 
+export interface TrendPoint {
+  id: string
+  workspace_id: string | null
+  category: string
+  topic_key: string
+  date_bucket: string
+  granularity: 'day' | 'week' | 'month'
+  item_count: number
+  avg_overall_score: number | null
+  avg_signal_strength: number | null
+  avg_cross_domain_impact: number | null
+  avg_investment_velocity: number | null
+  avg_technical_feasibility: number | null
+  avg_strategic_fit: number | null
+  summary: string | null
+  source_ids: string[]
+  created_at: string
+  updated_at: string
+}
+
+export interface TrendSeries {
+  category: string | null
+  topic_key: string | null
+  granularity: 'day' | 'week' | 'month'
+  points: TrendPoint[]
+}
+
+export interface TrendComparison {
+  series: TrendSeries[]
+}
+
+export interface TrendEvidence {
+  id: string
+  trend_point_id: string
+  raw_item_id: string
+  source_id: string
+  rank: number
+  overall_score: number | null
+  dimension_scores: Record<string, number | null>
+  rationale: string | null
+  raw_item_title: string | null
+  raw_item_url: string | null
+  source_name: string | null
+}
+
+export interface TrendAggregateRequest {
+  category?: string
+  topic_key?: string
+  start_date?: string
+  end_date?: string
+  granularity?: 'day' | 'week' | 'month'
+  top_evidence_count?: number
+}
+
+export async function aggregateTrends(payload: TrendAggregateRequest): Promise<TrendPoint[]> {
+  const res = await api.post('/trends/aggregate', payload)
+  return res.data
+}
+
+export async function fetchTrendSeries(
+  category?: string,
+  topic?: string,
+  startDate?: string,
+  endDate?: string,
+  granularity: 'day' | 'week' | 'month' = 'week',
+  compareTopics?: string[]
+): Promise<TrendComparison> {
+  const params: Record<string, unknown> = { granularity }
+  if (category) params.category = category
+  if (topic) params.topic_key = topic
+  if (startDate) params.start_date = startDate
+  if (endDate) params.end_date = endDate
+  if (compareTopics?.length) params.compare_topics = compareTopics
+  const res = await api.get('/trends/series', { params })
+  return res.data
+}
+
+export async function fetchTrendEvidence(trendPointId: string): Promise<TrendEvidence[]> {
+  const res = await api.get(`/trends/points/${trendPointId}/evidence`)
+  return res.data
+}
+
+export async function fetchTrendCategories(): Promise<string[]> {
+  const res = await api.get('/trends/categories')
+  return res.data.categories
+}
+
+export async function fetchTrendTopics(category?: string): Promise<string[]> {
+  const res = await api.get('/trends/topics', { params: category ? { category } : {} })
+  return res.data.topics
+}
+
 export async function fetchSources(): Promise<Source[]> {
   const res = await api.get('/sources')
   return res.data.sources
