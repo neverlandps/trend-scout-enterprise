@@ -1,31 +1,21 @@
-# SQLite → PostgreSQL Migration Assessment
+# SQLite to PostgreSQL Migration Assessment
 
 ## Current State
 
-Trend Scout Enterprise MVP uses SQLite as its primary data store. SQLAlchemy models
-are database-agnostic, but the project relies on SQLite-specific behaviours in a
-few places (see Risk sections below).
+Trend Scout Enterprise MVP uses SQLite as its primary data store. SQLAlchemy models are database-agnostic, but the project relies on SQLite-specific behaviors in a few places (see the Risk sections below).
 
 - **Engine**: `sqlite:///{path}` via `core/database.py`
 - **Migrations**: Alembic was intentionally removed from MVP scope
-- **Concurrency**: SQLite handles moderate read/write concurrency via WAL mode
-  but does not scale horizontally across multiple backend workers
+- **Concurrency**: SQLite handles moderate read/write concurrency via WAL mode but does not scale horizontally across multiple backend workers
 - **Backup**: manual file copy only
 
 ## Drivers for Migration
 
-1. **Multi-instance / horizontal scaling**: SQLite locks the database file to one
-   process group; running multiple backend containers requires a shared database.
-2. **Concurrent writes**: high-frequency scan/report workers can block each
-   other under SQLite WAL contention.
-3. **Operational backup / PITR**: PostgreSQL offers WAL archiving, pg_dump,
-   managed cloud services (Azure Database for PostgreSQL), and point-in-time
-   recovery.
-4. **SharePoint lists integration**: future P1 architecture may mirror raw items
-   to SharePoint lists; PostgreSQL JSONB columns can still serve as the system of
-   record.
-5. **Team expectations**: enterprise deployments expect a managed relational
-   database, not a file on the container filesystem.
+1. **Multi-instance / horizontal scaling**: SQLite locks the database file to one process group; running multiple backend containers requires a shared database.
+2. **Concurrent writes**: high-frequency scan/report workers can block each other under SQLite WAL contention.
+3. **Operational backup / PITR**: PostgreSQL offers WAL archiving, `pg_dump`, managed cloud services (Azure Database for PostgreSQL), and point-in-time recovery.
+4. **SharePoint lists integration**: future P1 architecture may mirror raw items to SharePoint lists; PostgreSQL JSONB columns can still serve as the system of record.
+5. **Team expectations**: enterprise deployments expect a managed relational database, not a file on the container filesystem.
 
 ## Schema Compatibility Analysis
 
@@ -38,29 +28,22 @@ Most SQLAlchemy models use generic types that map cleanly to PostgreSQL:
 
 ### Yellow (verify / minor changes)
 
-1. **JSON column behaviour**
-   - SQLite uses JSON1 extension; PostgreSQL uses native JSON / JSONB.
-   - `metadata_json` and `tags` columns currently use `JSON` type. SQLAlchemy
-     maps this to `JSON` on both dialects, but query operators differ.
-   - Recommendation: add a JSONB variant for PostgreSQL and keep JSON for
-     SQLite, or switch to JSONB globally with SQLite fallback to JSON.
+1. **JSON column behavior**
+   - SQLite uses the JSON1 extension; PostgreSQL uses native JSON / JSONB.
+   - `metadata_json` and `tags` columns currently use the `JSON` type. SQLAlchemy maps this to `JSON` on both dialects, but query operators differ.
+   - Recommendation: add a JSONB variant for PostgreSQL and keep JSON for SQLite, or switch to JSONB globally with SQLite fallback to JSON.
 
 2. **Case sensitivity**
-   - SQLite `LIKE` is case-insensitive by default for ASCII; PostgreSQL `LIKE`
-     is case-sensitive. Any text search filters should use `ilike()` explicitly.
+   - SQLite `LIKE` is case-insensitive by default for ASCII; PostgreSQL `LIKE` is case-sensitive. Any text search filters should use `ilike()` explicitly.
 
 3. **DateTime timezone**
-   - Models store UTC `DateTime` without timezone. PostgreSQL `timestamp`
-     without time zone is fine, but consider `timestamptz` in a future revision.
+   - Models store UTC `DateTime` without timezone. PostgreSQL `timestamp` without time zone is fine, but consider `timestamptz` in a future revision.
 
 ### Red (requires code changes)
 
 1. **Primary key UUID generation**
-   - Python `uuid.uuid4().hex` produces 32-char hex strings. This is compatible
-     with PostgreSQL `CHAR(32)` / `VARCHAR(32)` primary keys, but using native
-     `UUID` type is more efficient.
-   - Changing to native UUID requires schema migration and client-side string
-     handling updates.
+   - Python `uuid.uuid4().hex` produces 32-character hex strings. This is compatible with PostgreSQL `CHAR(32)` / `VARCHAR(32)` primary keys, but using a native `UUID` type is more efficient.
+   - Changing to native UUID requires a schema migration and client-side string handling updates.
 
 2. **Auto-increment / serial IDs**
    - No model uses auto-increment integer keys, so migration is straightforward.
@@ -88,22 +71,21 @@ Most SQLAlchemy models use generic types that map cleanly to PostgreSQL:
    - Preserve `id` UUIDs to maintain foreign-key integrity
 4. Test migration in CI against a PostgreSQL service container.
 
-### Phase 3: CI/CD & Docker (P1, ~6 hours)
+### Phase 3: CI/CD and Docker (P1, ~6 hours)
 
-1. Update `docker-compose.yml` with `postgres` service.
-2. Update GitHub Actions workflow to spin up `postgres:15` service container
-   for backend tests.
+1. Update `docker-compose.yml` with a `postgres` service.
+2. Update the GitHub Actions workflow to spin up a `postgres:15` service container for backend tests.
 3. Add health checks for PostgreSQL readiness before running tests.
 4. Keep SQLite-only tests running in parallel to ensure local-dev parity.
 
 ### Phase 4: Operational Readiness (P2, ~8 hours)
 
 1. Add connection pooling (`SQLAlchemy QueuePool`) settings.
-2. Add database migration step to Docker entrypoint or init container.
+2. Add a database migration step to the Docker entrypoint or init container.
 3. Document backup/restore procedures for PostgreSQL.
-4. Evaluate Azure Database for PostgreSQL / AWS RDS managed offering.
+4. Evaluate Azure Database for PostgreSQL or AWS RDS managed offerings.
 
-## Risks & Fallbacks
+## Risks and Fallbacks
 
 | Risk | Impact | Fallback |
 |---|---|---|

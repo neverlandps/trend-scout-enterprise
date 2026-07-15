@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-15  
 **Repository:** `neverlandps/trend-scout-enterprise`  
-**Final commit on main:** `0128e6c` — `ci(workflows): add frontend CI, backend smoke test, and stabilize SPFx build with package-lock artifact`
+**Final commit on main:** `96fd663` — `docs(wrap-up): add project wrap-up summary and link from README`
 
 ---
 
@@ -159,7 +159,7 @@ Build **Trend Scout Enterprise**, a multi-user, workspace-isolated trend scoutin
 
 ### Backend
 ```bash
-cd /home/ps/trend-scout-enterprise/backend
+cd backend
 pip install -e ".[dev]"
 python -m pytest tests/ -v
 python -m uvicorn trend_scout_enterprise.main:app --host 0.0.0.0 --port 8000
@@ -167,7 +167,7 @@ python -m uvicorn trend_scout_enterprise.main:app --host 0.0.0.0 --port 8000
 
 ### Frontend
 ```bash
-cd /home/ps/trend-scout-enterprise/frontend
+cd frontend
 npm install
 npm run test
 npm run build
@@ -175,20 +175,20 @@ npm run build
 
 ### Local Smoke Test
 ```bash
-cd /home/ps/trend-scout-enterprise/backend
+cd backend
 python -m uvicorn trend_scout_enterprise.main:app --host 0.0.0.0 --port 8000
 python scripts/smoke_test.py
 ```
 
 ### Docker Compose (production shape)
 ```bash
-cd /home/ps/trend-scout-enterprise
-GITHUB_REPOSITORY_OWNER=neverlandps docker compose up -d
+cd ..
+GITHUB_REPOSITORY_OWNER=your-org docker compose up -d
 ```
 
 ### SPFx Build
 ```bash
-cd /home/ps/trend-scout-enterprise/spfx-webpart
+cd spfx-webpart
 npm install
 npm run build
 npm run package
@@ -200,14 +200,14 @@ npm run package
 ## 8. Repository Layout
 
 ```
-/home/ps/trend-scout-enterprise/
+trend-scout-enterprise/
 ├── backend/
 │   ├── src/trend_scout_enterprise/   # FastAPI app, models, services, routers, workers, scanners
 │   ├── tests/                         # 15 test files
 │   └── scripts/smoke_test.py          # Local E2E smoke test
 ├── frontend/
 │   ├── src/                           # React + TypeScript pages & components
-│   └── tests/                         # Vitest setup + tests
+│   └── test/                          # Vitest setup + tests
 ├── spfx-webpart/                      # SharePoint Framework web part
 ├── deployment/
 │   ├── Dockerfile
@@ -217,6 +217,7 @@ npm run package
 │   ├── frontend.yml    # Frontend tests + build
 │   └── spfx.yml        # SPFx build
 ├── docs/
+│   ├── project-wrap-up.md
 │   ├── verification-report.md
 │   └── postgresql-migration-assessment.md
 └── README.md
