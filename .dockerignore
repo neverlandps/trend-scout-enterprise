@@ -1,0 +1,51 @@
+# Git
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Node / frontend
+frontend/node_modules
+frontend/dist
+frontend/.turbo
+
+# IDE
+.vscode
+.idea
+*.swp
+
+# Data / outputs
+*.db
+*.sqlite
+*.sqlite3
+data/
+outputs/
+.trend_scout*
+test_*.db
+
+# Docs / misc
+*.md
+!README.md
+docs/
+
+# Local env files
+.env
+.env.local
+.env.*

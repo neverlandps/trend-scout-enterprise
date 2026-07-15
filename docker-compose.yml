@@ -1,0 +1,67 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  backend:
+    build:
+      context: .
+      dockerfile: deployment/Dockerfile
+    container_name: trend-scout-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///data/trend_scout.db
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - PIP_INDEX_URL=https://mirrors.cloud.tencent.com/pypi/simple/
+      - PIP_TRUSTED_HOST=mirrors.cloud.tencent.com
+    volumes:
+      - app-data:/data
+    depends_on:
+      - redis
+
+  worker:
+    build:
+      context: .
+      dockerfile: deployment/Dockerfile
+    container_name: trend-scout-worker
+    command: ["celery", "-A", "trend_scout_enterprise.workers.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
+    environment:
+      - DATABASE_URL=sqlite:///data/trend_scout.db
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - PIP_INDEX_URL=https://mirrors.cloud.tencent.com/pypi/simple/
+      - PIP_TRUSTED_HOST=mirrors.cloud.tencent.com
+    volumes:
+      - app-data:/data
+    depends_on:
+      - redis
+      - backend
+
+  beat:
+    build:
+      context: .
+      dockerfile: deployment/Dockerfile
+    container_name: trend-scout-beat
+    command: ["celery", "-A", "trend_scout_enterprise.workers.celery_app", "beat", "--loglevel=info"]
+    environment:
+      - DATABASE_URL=sqlite:///data/trend_scout.db
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - PIP_INDEX_URL=https://mirrors.cloud.tencent.com/pypi/simple/
+      - PIP_TRUSTED_HOST=mirrors.cloud.tencent.com
+    volumes:
+      - app-data:/data
+    depends_on:
+      - redis
+      - backend
+
+volumes:
+  redis-data:
+  app-data:
