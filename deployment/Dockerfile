@@ -9,7 +9,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install system dependencies for WeasyPrint and database drivers
+# Install system dependencies for WeasyPrint and database drivers.
+# Use a single RUN so the layer is cached together; fail-safe apt-get flags.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libpango-1.0-0 \
@@ -19,13 +20,14 @@ RUN apt-get update \
         libgdk-pixbuf2.0-0 \
         shared-mime-info \
         libpq5 \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 COPY backend/pyproject.toml ./
 COPY backend/src ./src
 
 RUN pip install --upgrade pip \
-    && pip install -e .
+    && pip install --no-cache-dir -e .
 
 # Ensure output directory exists and is writable
 RUN mkdir -p /data/outputs && chmod 777 /data/outputs
