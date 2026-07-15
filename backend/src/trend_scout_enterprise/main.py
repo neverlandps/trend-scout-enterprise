@@ -12,6 +12,7 @@ from trend_scout_enterprise.api import (
     settings_router,
     signals_router,
     sharepoint_router,
+    trends_router,
     workspace_router,
 )
 from trend_scout_enterprise.core.config import settings
@@ -86,6 +87,7 @@ app.include_router(reports_router, prefix="/api/v1", tags=["reports"])
 app.include_router(settings_router, prefix="/api/v1", tags=["settings"])
 app.include_router(sharepoint_router, prefix="/api/v1", tags=["sharepoint"])
 app.include_router(schedule_router, prefix="/api/v1", tags=["schedules"])
+app.include_router(trends_router, prefix="/api/v1", tags=["trends"])
 
 
 if __name__ == "__main__":

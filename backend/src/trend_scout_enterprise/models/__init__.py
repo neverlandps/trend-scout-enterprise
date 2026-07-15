@@ -23,9 +23,15 @@ from trend_scout_enterprise.models.sharepoint import (
     SharePointConnection,
     SharePointUploadRecord,
 )
+from trend_scout_enterprise.models.trends import (
+    TopicTrendPoint,
+    TrendEvidence,
+)
+from trend_scout_enterprise.core.database import Base
 
 __all__ = [
     "ApiKey",
+    "Base",
     "LlmProvider",
     "MicrosoftAuthConfig",
     "NotificationChannel",
@@ -40,6 +46,8 @@ __all__ = [
     "Source",
     "Team",
     "TeamMembership",
+    "TopicTrendPoint",
+    "TrendEvidence",
     "UserSession",
     "Workspace",
 ]
