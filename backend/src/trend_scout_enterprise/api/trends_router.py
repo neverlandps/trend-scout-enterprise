@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.core.database import get_db
 from trend_scout_enterprise.core.dependencies import get_current_workspace
+from trend_scout_enterprise.models.models import Workspace
 from trend_scout_enterprise.schemas.trends import (
     TrendAggregateRequest,
     TrendCategoryListOut,
@@ -32,12 +33,12 @@ router = APIRouter(prefix="/trends", tags=["trends"])
 def aggregate_trends(
     request: TrendAggregateRequest,
     db: Session = Depends(get_db),
-    workspace_id: str | None = Depends(get_current_workspace),
+    workspace: Workspace = Depends(get_current_workspace),
 ):
     """Trigger trend aggregation for the current workspace."""
     return aggregate_trends_for_workspace(
         db=db,
-        workspace_id=workspace_id,
+        workspace_id=workspace.id,
         category=request.category,
         topic_key=request.topic_key,
         start_date=request.start_date,
@@ -56,13 +57,14 @@ def get_trend_series(
     granularity: str = Query("week"),
     compare_topics: list[str] | None = Query(None),
     db: Session = Depends(get_db),
-    workspace_id: str | None = Depends(get_current_workspace),
+    workspace: Workspace = Depends(get_current_workspace),
 ):
     """Return one or more trend series for comparison.
 
     If `compare_topics` is provided, each topic is returned as a separate series
     for the given category.
     """
+    workspace_id = workspace.id
     topics = compare_topics or ([topic_key] if topic_key else None)
     series = []
     if topics:
@@ -109,7 +111,7 @@ def get_trend_series(
 def get_trend_evidence(
     trend_point_id: str,
     db: Session = Depends(get_db),
-    workspace_id: str | None = Depends(get_current_workspace),
+    workspace: Workspace = Depends(get_current_workspace),
 ):
     """Return traceable evidence for a specific trend point."""
     evidence = get_evidence_for_point(db=db, trend_point_id=trend_point_id)
@@ -128,17 +130,17 @@ def get_trend_evidence(
 def list_topics(
     category: str | None = Query(None),
     db: Session = Depends(get_db),
-    workspace_id: str | None = Depends(get_current_workspace),
+    workspace: Workspace = Depends(get_current_workspace),
 ):
     """List distinct trend topics for the current workspace/category."""
-    topics = list_distinct_topics(db=db, workspace_id=workspace_id, category=category)
+    topics = list_distinct_topics(db=db, workspace_id=workspace.id, category=category)
     return TrendTopicListOut(topics=topics)
 
 
 @router.get("/categories", response_model=TrendCategoryListOut)
 def list_categories(
     db: Session = Depends(get_db),
-    workspace_id: str | None = Depends(get_current_workspace),
+    workspace: Workspace = Depends(get_current_workspace),
 ):
     """List distinct categories that have trend points."""
     from sqlalchemy import distinct
@@ -146,7 +148,7 @@ def list_categories(
 
     rows = (
         db.query(distinct(TopicTrendPoint.category))
-        .filter_by(workspace_id=workspace_id)
+        .filter_by(workspace_id=workspace.id)
         .order_by(TopicTrendPoint.category)
         .all()
     )
