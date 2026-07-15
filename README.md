@@ -2,6 +2,14 @@
 
 AI-powered trend scouting automation platform for enterprise business teams.
 
+## Project Wrap-up
+
+For a complete summary of the delivered MVP, architecture decisions, verification results, and P1 roadmap, see:
+
+- [`docs/project-wrap-up.md`](docs/project-wrap-up.md)
+- [`docs/verification-report.md`](docs/verification-report.md)
+- [`docs/postgresql-migration-assessment.md`](docs/postgresql-migration-assessment.md)
+
 ## Quick Start (Local Development)
 
 ```bash
