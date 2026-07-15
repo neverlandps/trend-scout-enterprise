@@ -21,10 +21,10 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: spfx-webpart/package-lock.json
+          # No package-lock.json committed for this skeleton; use npm install.
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build SPFx package
         run: |

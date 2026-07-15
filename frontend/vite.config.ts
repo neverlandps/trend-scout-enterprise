@@ -12,4 +12,24 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (id.includes('node_modules')) {
+            if (id.includes('recharts') || id.includes('d3-')) {
+              return 'recharts'
+            }
+            if (id.includes('@fluentui')) {
+              return 'fluentui'
+            }
+            if (id.includes('react-router-dom') || id.includes('react-router')) {
+              return 'router'
+            }
+            return 'vendor'
+          }
+        },
+      },
+    },
+  },
 })

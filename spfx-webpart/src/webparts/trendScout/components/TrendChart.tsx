@@ -1,7 +1,6 @@
 
 import * as React from 'react';
 import { useEffect, useState } from 'react';
-import { ITrendScoutProps } from './ITrendScoutProps';
 
 interface TrendPoint {
   date_bucket: string;
@@ -9,14 +8,20 @@ interface TrendPoint {
   item_count: number;
 }
 
-export function TrendChart(props: ITrendScoutProps): React.ReactElement<ITrendScoutProps> {
+interface TrendChartProps {
+  apiBaseUrl: string;
+  headers: Record<string, string>;
+}
+
+export function TrendChart(props: TrendChartProps): React.ReactElement<TrendChartProps> {
   const [points, setPoints] = useState<TrendPoint[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    if (!props.apiKey) return;
+    const token = props.headers['X-Embed-Token'];
+    if (!token) return;
     fetch(`${props.apiBaseUrl}/trends/series?granularity=week`, {
-      headers: { 'X-API-Key': props.apiKey, 'X-Workspace-ID': props.workspaceId },
+      headers: props.headers,
     })
       .then((res) => res.json())
       .then((data) => {
@@ -24,7 +29,7 @@ export function TrendChart(props: ITrendScoutProps): React.ReactElement<ITrendSc
         setPoints(series);
         setLoading(false);
       });
-  }, [props.apiBaseUrl, props.apiKey, props.workspaceId]);
+  }, [props.apiBaseUrl, props.headers]);
 
   if (loading) return <div>Loading trends...</div>;
 

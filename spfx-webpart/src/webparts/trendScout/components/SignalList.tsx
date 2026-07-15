@@ -1,7 +1,6 @@
 
 import * as React from 'react';
 import { useEffect, useState } from 'react';
-import { ITrendScoutProps } from './ITrendScoutProps';
 
 interface Signal {
   id: string;
@@ -11,18 +10,23 @@ interface Signal {
   collected_at: string;
 }
 
-export function SignalList(props: ITrendScoutProps): React.ReactElement<ITrendScoutProps> {
+interface SignalListProps {
+  apiBaseUrl: string;
+  headers: Record<string, string>;
+}
+
+export function SignalList(props: SignalListProps): React.ReactElement<SignalListProps> {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!props.apiKey) return;
+    const token = props.headers['X-Embed-Token'];
+    if (!token) return;
     setLoading(true);
     fetch(`${props.apiBaseUrl}/signals?limit=20`, {
       headers: {
-        'X-API-Key': props.apiKey,
-        'X-Workspace-ID': props.workspaceId,
+        ...props.headers,
         'Content-Type': 'application/json',
       },
     })
@@ -35,7 +39,7 @@ export function SignalList(props: ITrendScoutProps): React.ReactElement<ITrendSc
         setError(err.message);
         setLoading(false);
       });
-  }, [props.apiBaseUrl, props.apiKey, props.workspaceId]);
+  }, [props.apiBaseUrl, props.headers]);
 
   if (loading) return <div>Loading signals...</div>;
   if (error) return <div style={{ color: 'red' }}>{error}</div>;

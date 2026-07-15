@@ -31,11 +31,15 @@ from trend_scout_enterprise.models.llm_fallback import (
     LlmFallbackProvider,
     LlmHealthLog,
 )
+from trend_scout_enterprise.models.embed_token import (
+    EmbedToken,
+)
 from trend_scout_enterprise.core.database import Base
 
 __all__ = [
     "ApiKey",
     "Base",
+    "EmbedToken",
     "LlmFallbackProvider",
     "LlmHealthLog",
     "LlmProvider",

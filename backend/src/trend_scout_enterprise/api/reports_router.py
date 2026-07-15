@@ -4,7 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.core.database import get_db
-from trend_scout_enterprise.core.dependencies import get_current_api_key, get_current_workspace
+from trend_scout_enterprise.core.dependencies import (
+    get_current_api_key,
+    get_current_workspace,
+    get_current_workspace_unified,
+)
 from trend_scout_enterprise.models.models import ApiKey, RawItem, Report, Source, Workspace
 from trend_scout_enterprise.schemas import ReportCreate, ReportListOut, ReportOut
 from trend_scout_enterprise.workers.report_worker import generate_report as generate_report_task
@@ -15,8 +19,7 @@ router = APIRouter()
 @router.get("/reports", response_model=ReportListOut)
 def list_reports(
     db: Session = Depends(get_db),
-    api_key: ApiKey = Depends(get_current_api_key),
-    workspace: Workspace = Depends(get_current_workspace),
+    workspace: Workspace = Depends(get_current_workspace_unified),
 ) -> ReportListOut:
     """List all reports in the current workspace."""
     reports = (
@@ -69,8 +72,7 @@ def create_report(
 def get_report(
     report_id: str,
     db: Session = Depends(get_db),
-    api_key: ApiKey = Depends(get_current_api_key),
-    workspace: Workspace = Depends(get_current_workspace),
+    workspace: Workspace = Depends(get_current_workspace_unified),
 ) -> ReportOut:
     """Retrieve a single report by ID in the current workspace."""
     db_report = db.query(Report).filter(
@@ -85,8 +87,7 @@ def get_report(
 def download_report(
     report_id: str,
     db: Session = Depends(get_db),
-    api_key: ApiKey = Depends(get_current_api_key),
-    workspace: Workspace = Depends(get_current_workspace),
+    workspace: Workspace = Depends(get_current_workspace_unified),
 ) -> dict[str, str]:
     """Return download metadata for a report in the current workspace."""
     db_report = db.query(Report).filter(

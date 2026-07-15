@@ -78,7 +78,7 @@ def resolve_workspace(db: Session, api_key: ApiKey, workspace_id: str | None = N
         # Auto-create a default team/workspace for standalone API keys (e.g., legacy or tests).
         return get_or_create_default_team_workspace(db, api_key)
 
-    if workspace_id:
+    if workspace_id and workspace_id != "current":
         workspace = db.query(Workspace).filter(
             Workspace.id == workspace_id,
             Workspace.team_id == membership.team_id,

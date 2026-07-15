@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.api import (
     auth_router,
+    embed_token_router,
     health_router,
     llm_fallback_router,
     schedule_router,
@@ -89,6 +90,7 @@ app.include_router(settings_router, prefix="/api/v1", tags=["settings"])
 app.include_router(sharepoint_router, prefix="/api/v1", tags=["sharepoint"])
 app.include_router(schedule_router, prefix="/api/v1", tags=["schedules"])
 app.include_router(trends_router, prefix="/api/v1", tags=["trends"])
+app.include_router(embed_token_router, prefix="/api/v1", tags=["embed-tokens"])
 app.include_router(llm_fallback_router, prefix="/api/v1", tags=["llm-fallback"])
 
 

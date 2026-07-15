@@ -1,7 +1,6 @@
 
 import * as React from 'react';
 import { useEffect, useState } from 'react';
-import { ITrendScoutProps } from './ITrendScoutProps';
 
 interface Source {
   id: string;
@@ -11,21 +10,27 @@ interface Source {
   last_scan_at: string | null;
 }
 
-export function SourceList(props: ITrendScoutProps): React.ReactElement<ITrendScoutProps> {
+interface SourceListProps {
+  apiBaseUrl: string;
+  headers: Record<string, string>;
+}
+
+export function SourceList(props: SourceListProps): React.ReactElement<SourceListProps> {
   const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    if (!props.apiKey) return;
+    const token = props.headers['X-Embed-Token'];
+    if (!token) return;
     fetch(`${props.apiBaseUrl}/sources`, {
-      headers: { 'X-API-Key': props.apiKey, 'X-Workspace-ID': props.workspaceId },
+      headers: props.headers,
     })
       .then((res) => res.json())
       .then((data) => {
         setSources(data.sources || []);
         setLoading(false);
       });
-  }, [props.apiBaseUrl, props.apiKey, props.workspaceId]);
+  }, [props.apiBaseUrl, props.headers]);
 
   if (loading) return <div>Loading sources...</div>;
 

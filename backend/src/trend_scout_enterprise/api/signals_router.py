@@ -4,8 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.core.database import get_db
-from trend_scout_enterprise.core.dependencies import get_current_api_key, get_current_workspace
-from trend_scout_enterprise.models.models import ApiKey, LlmProvider, RawItem, Source, Workspace
+from trend_scout_enterprise.core.dependencies import (
+    get_current_api_key,
+    get_current_workspace,
+    get_current_workspace_unified,
+)
+from trend_scout_enterprise.core.encryption import decrypt_value
+from trend_scout_enterprise.models.models import ApiKey, LlmProvider, RawItem, Workspace
 from trend_scout_enterprise.schemas import (
     RawItemOut,
     SignalAnalyzeOut,
@@ -14,7 +19,6 @@ from trend_scout_enterprise.schemas import (
 )
 from trend_scout_enterprise.services.analysis_service import analyze_signals_batch
 from trend_scout_enterprise.services.llm_service import LlmService
-from trend_scout_enterprise.core.encryption import decrypt_value
 
 router = APIRouter()
 
@@ -49,8 +53,7 @@ def list_signals(
     limit: int = 100,
     offset: int = 0,
     db: Session = Depends(get_db),
-    api_key: ApiKey = Depends(get_current_api_key),
-    workspace: Workspace = Depends(get_current_workspace),
+    workspace: Workspace = Depends(get_current_workspace_unified),
 ) -> SignalListOut:
     """List raw signals in the current workspace."""
     query = db.query(RawItem).filter(RawItem.workspace_id == workspace.id)
@@ -72,8 +75,7 @@ def list_signals(
 def get_signal(
     signal_id: str,
     db: Session = Depends(get_db),
-    api_key: ApiKey = Depends(get_current_api_key),
-    workspace: Workspace = Depends(get_current_workspace),
+    workspace: Workspace = Depends(get_current_workspace_unified),
 ) -> RawItemOut:
     """Retrieve a single signal by ID in the current workspace."""
     signal = (

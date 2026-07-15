@@ -17,7 +17,7 @@ export default class TrendScoutWebPart extends BaseClientSideWebPart<ITrendScout
       TrendScout,
       {
         apiBaseUrl: this.properties.apiBaseUrl || 'https://your-trend-scout-api.example.com/api/v1',
-        apiKey: this.properties.apiKey || '',
+        embedToken: this.properties.embedToken || '',
         workspaceId: this.properties.workspaceId || '',
         view: this.properties.view || 'signals',
       }
@@ -48,8 +48,9 @@ export default class TrendScoutWebPart extends BaseClientSideWebPart<ITrendScout
                   label: 'API Base URL',
                   value: 'https://your-trend-scout-api.example.com/api/v1',
                 }),
-                PropertyPaneTextField('apiKey', {
-                  label: 'API Key',
+                PropertyPaneTextField('embedToken', {
+                  label: 'Embed Token',
+                  description: 'Generate a read-only embed token from Trend Scout workspace settings. The token expires periodically and can be revoked.',
                 }),
                 PropertyPaneTextField('workspaceId', {
                   label: 'Workspace ID',

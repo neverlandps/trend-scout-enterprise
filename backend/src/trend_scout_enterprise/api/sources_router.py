@@ -4,7 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.core.database import get_db
-from trend_scout_enterprise.core.dependencies import get_current_api_key, get_current_workspace
+from trend_scout_enterprise.core.dependencies import (
+    get_current_api_key,
+    get_current_workspace,
+    get_current_workspace_unified,
+)
 from trend_scout_enterprise.models.models import ApiKey, Workspace
 from trend_scout_enterprise.schemas import (
     ScannerTypeOut,
@@ -23,8 +27,7 @@ router = APIRouter()
 @router.get("/sources", response_model=SourceListOut)
 def list_sources(
     db: Session = Depends(get_db),
-    api_key: ApiKey = Depends(get_current_api_key),
-    workspace: Workspace = Depends(get_current_workspace),
+    workspace: Workspace = Depends(get_current_workspace_unified),
 ) -> SourceListOut:
     """List all signal sources in the current workspace."""
     sources = source_service.list_sources(db, workspace_id=workspace.id)
@@ -55,8 +58,7 @@ def scanner_types(
 def get_source(
     source_id: str,
     db: Session = Depends(get_db),
-    api_key: ApiKey = Depends(get_current_api_key),
-    workspace: Workspace = Depends(get_current_workspace),
+    workspace: Workspace = Depends(get_current_workspace_unified),
 ) -> SourceOut:
     """Retrieve a single source by ID in the current workspace."""
     db_source = source_service.get_source(db, source_id, workspace_id=workspace.id)
@@ -91,8 +93,7 @@ def delete_source(
 def get_source_health(
     source_id: str,
     db: Session = Depends(get_db),
-    api_key: ApiKey = Depends(get_current_api_key),
-    workspace: Workspace = Depends(get_current_workspace),
+    workspace: Workspace = Depends(get_current_workspace_unified),
 ) -> SourceHealthOut:
     """Retrieve the health status of a source in the current workspace."""
     db_source = source_service.get_source(db, source_id, workspace_id=workspace.id)

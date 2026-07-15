@@ -7,7 +7,10 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.core.database import get_db
-from trend_scout_enterprise.core.dependencies import get_current_workspace
+from trend_scout_enterprise.core.dependencies import (
+    get_current_workspace,
+    get_current_workspace_unified,
+)
 from trend_scout_enterprise.models.models import Workspace
 from trend_scout_enterprise.schemas.trends import (
     TrendAggregateRequest,
@@ -57,7 +60,7 @@ def get_trend_series(
     granularity: str = Query("week"),
     compare_topics: list[str] | None = Query(None),
     db: Session = Depends(get_db),
-    workspace: Workspace = Depends(get_current_workspace),
+    workspace: Workspace = Depends(get_current_workspace_unified),
 ):
     """Return one or more trend series for comparison.
 
@@ -111,7 +114,7 @@ def get_trend_series(
 def get_trend_evidence(
     trend_point_id: str,
     db: Session = Depends(get_db),
-    workspace: Workspace = Depends(get_current_workspace),
+    workspace: Workspace = Depends(get_current_workspace_unified),
 ):
     """Return traceable evidence for a specific trend point."""
     evidence = get_evidence_for_point(db=db, trend_point_id=trend_point_id)
@@ -130,7 +133,7 @@ def get_trend_evidence(
 def list_topics(
     category: str | None = Query(None),
     db: Session = Depends(get_db),
-    workspace: Workspace = Depends(get_current_workspace),
+    workspace: Workspace = Depends(get_current_workspace_unified),
 ):
     """List distinct trend topics for the current workspace/category."""
     topics = list_distinct_topics(db=db, workspace_id=workspace.id, category=category)
@@ -140,7 +143,7 @@ def list_topics(
 @router.get("/categories", response_model=TrendCategoryListOut)
 def list_categories(
     db: Session = Depends(get_db),
-    workspace: Workspace = Depends(get_current_workspace),
+    workspace: Workspace = Depends(get_current_workspace_unified),
 ):
     """List distinct categories that have trend points."""
     from sqlalchemy import distinct

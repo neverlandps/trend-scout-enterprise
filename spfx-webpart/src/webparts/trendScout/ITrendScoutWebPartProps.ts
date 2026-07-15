@@ -1,7 +1,6 @@
-
 export interface ITrendScoutWebPartProps {
   apiBaseUrl: string;
-  apiKey: string;
+  embedToken: string;
   workspaceId: string;
   view: 'signals' | 'sources' | 'trends' | 'reports';
 }

@@ -11,21 +11,26 @@ export default function TrendScout(props: ITrendScoutProps): React.ReactElement<
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!props.apiKey) {
-      setError('API Key is required in web part settings.');
+    if (!props.embedToken) {
+      setError('Embed token is required in web part settings. Generate one from Trend Scout workspace settings.');
     } else {
       setError(null);
     }
-  }, [props.apiKey]);
+  }, [props.embedToken]);
+
+  const headers: Record<string, string> = {
+    'X-Embed-Token': props.embedToken,
+    'X-Workspace-ID': props.workspaceId,
+  };
 
   return (
     <div>
       <h2>Trend Scout</h2>
       {error && <div style={{ color: 'red' }}>{error}</div>}
-      {props.view === 'signals' && <SignalList {...props} />}
-      {props.view === 'sources' && <SourceList {...props} />}
-      {props.view === 'trends' && <TrendChart {...props} />}
-      {props.view === 'reports' && <ReportList {...props} />}
+      {props.view === 'signals' && <SignalList apiBaseUrl={props.apiBaseUrl} headers={headers} />}
+      {props.view === 'sources' && <SourceList apiBaseUrl={props.apiBaseUrl} headers={headers} />}
+      {props.view === 'trends' && <TrendChart apiBaseUrl={props.apiBaseUrl} headers={headers} />}
+      {props.view === 'reports' && <ReportList apiBaseUrl={props.apiBaseUrl} headers={headers} />}
     </div>
   );
 }
