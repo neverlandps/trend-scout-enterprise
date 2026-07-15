@@ -12,11 +12,11 @@ from sqlalchemy.orm import Session
 from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.core.database import SessionLocal
 from trend_scout_enterprise.core.encryption import decrypt_dict
-from trend_scout_enterprise.models.models import LlmProvider, RawItem, ScanRun, Source
+from trend_scout_enterprise.models.models import RawItem, ScanRun, Source
 from trend_scout_enterprise.scanners import get_scanner
 from trend_scout_enterprise.services import source_service
 from trend_scout_enterprise.services.analysis_service import analyze_signals_batch
-from trend_scout_enterprise.services.llm_service import LlmService
+from trend_scout_enterprise.services.llm_service import LlmService, build_llm_service_with_fallback
 from trend_scout_enterprise.services.notification_service import NotificationService
 
 celery_app = Celery(
@@ -34,17 +34,10 @@ def _get_db() -> Session:
 
 
 def _get_default_llm_service(db: Session) -> LlmService | None:
-    provider = db.query(LlmProvider).filter(LlmProvider.is_default == True).first()
-    if not provider:
+    try:
+        return build_llm_service_with_fallback(db)
+    except Exception:
         return None
-    from trend_scout_enterprise.core.encryption import decrypt_value
-    return LlmService(
-        base_url=provider.base_url,
-        api_key=decrypt_value(provider.api_key_encrypted) if provider.api_key_encrypted else None,
-        model=provider.model,
-        temperature=provider.temperature,
-        max_tokens=provider.max_tokens,
-    )
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)

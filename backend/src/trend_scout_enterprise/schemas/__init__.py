@@ -29,6 +29,13 @@ from trend_scout_enterprise.schemas.schemas import (
     SourceOut,
     SourceUpdate,
 )
+from trend_scout_enterprise.schemas.llm_fallback import (
+    LlmFallbackHealthOut,
+    LlmFallbackProviderCreate,
+    LlmFallbackProviderOut,
+    LlmFallbackProviderUpdate,
+    LlmFallbackStrategyOut,
+)
 from trend_scout_enterprise.schemas.auth import (
     LoginResponse,
     MicrosoftAuthConfigIn,
@@ -45,6 +52,11 @@ __all__ = [
     "LlmProviderOut",
     "LlmSettingsOut",
     "LlmSettingsUpdate",
+    "LlmFallbackHealthOut",
+    "LlmFallbackProviderCreate",
+    "LlmFallbackProviderOut",
+    "LlmFallbackProviderUpdate",
+    "LlmFallbackStrategyOut",
     "LoginResponse",
     "MicrosoftAuthConfigIn",
     "MicrosoftAuthConfigOut",

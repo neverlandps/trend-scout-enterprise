@@ -87,3 +87,7 @@ frontend/spfx/*.sppkg
 *.key
 *.pem
 secrets.yaml
+spfx-webpart/node_modules/
+spfx-webpart/lib/
+spfx-webpart/sharepoint/
+spfx-webpart/temp/

@@ -4,6 +4,7 @@ from trend_scout_enterprise.api.workspace_router import router as workspace_rout
 from trend_scout_enterprise.api.sources_router import router as sources_router
 from trend_scout_enterprise.api.scans_router import router as scans_router
 from trend_scout_enterprise.api.reports_router import router as reports_router
+from trend_scout_enterprise.api.llm_fallback_router import router as llm_fallback_router
 from trend_scout_enterprise.api.settings_router import router as settings_router
 from trend_scout_enterprise.api.signals_router import router as signals_router
 from trend_scout_enterprise.api.sharepoint_router import router as sharepoint_router
@@ -13,6 +14,7 @@ from trend_scout_enterprise.api.trends_router import router as trends_router
 __all__ = [
     "auth_router",
     "health_router",
+    "llm_fallback_router",
     "schedule_router",
     "sharepoint_router",
     "signals_router",

@@ -43,6 +43,20 @@ GitHub Actions workflow at `.github/workflows/docker.yml`:
 - Runs backend tests on every push / PR
 - Builds and pushes backend image to `ghcr.io/<owner>/trend-scout-enterprise-backend`
 
+
+## SharePoint Framework (SPFx) Web Part
+
+An SPFx web part is included under `spfx-webpart/` to embed the Trend Scout dashboard directly into SharePoint pages.
+
+```bash
+cd spfx-webpart
+npm install
+npm run build
+npm run package
+```
+
+The packaged app is produced at `spfx-webpart/sharepoint/solution/trend-scout-spfx-webpart.sppkg`.
+
 ## Frontend
 
 ```bash

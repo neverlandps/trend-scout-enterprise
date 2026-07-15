@@ -1,0 +1,40 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
+  "solution": {
+    "name": "Trend Scout Enterprise",
+    "id": "1e3e4f5a-6b7c-8d9e-0f1a-2b3c4d5e6f7a",
+    "version": "1.0.0.0",
+    "includeClientSideAssets": true,
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "developer": {
+      "name": "Mars",
+      "websiteUrl": "https://example.com",
+      "privacyUrl": "https://example.com/privacy",
+      "termsOfUseUrl": "https://example.com/terms"
+    },
+    "metadata": {
+      "shortDescription": {
+        "default": "Trend Scout dashboard for SharePoint"
+      },
+      "longDescription": {
+        "default": "Display trend signals, scoring summaries and source health inside SharePoint pages."
+      },
+      "screenshotPaths": [],
+      "videoUrl": "",
+      "categories": []
+    },
+    "features": [
+      {
+        "title": "Trend Scout Web Part",
+        "description": "Embeds the Trend Scout dashboard in SharePoint.",
+        "id": "1e3e4f5a-6b7c-8d9e-0f1a-2b3c4d5e6f7b",
+        "version": "1.0.0.0",
+        "componentIds": ["1e3e4f5a-6b7c-8d9e-0f1a-2b3c4d5e6f7c"]
+      }
+    ]
+  },
+  "paths": {
+    "zippedPackage": "solution/trend-scout-spfx-webpart.sppkg"
+  }
+}

@@ -27,11 +27,17 @@ from trend_scout_enterprise.models.trends import (
     TopicTrendPoint,
     TrendEvidence,
 )
+from trend_scout_enterprise.models.llm_fallback import (
+    LlmFallbackProvider,
+    LlmHealthLog,
+)
 from trend_scout_enterprise.core.database import Base
 
 __all__ = [
     "ApiKey",
     "Base",
+    "LlmFallbackProvider",
+    "LlmHealthLog",
     "LlmProvider",
     "MicrosoftAuthConfig",
     "NotificationChannel",

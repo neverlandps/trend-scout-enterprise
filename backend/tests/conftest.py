@@ -74,3 +74,14 @@ def second_workspace(test_db, default_api_key):
     test_db.commit()
     test_db.refresh(workspace)
     return workspace
+@pytest.fixture(scope="function")
+def default_workspace(test_db, default_api_key):
+    """Return the default workspace for the test API key."""
+    api_key, _ = default_api_key
+    return get_or_create_default_team_workspace(test_db, api_key)
+
+
+@pytest.fixture(scope="function")
+def auth_headers(client):
+    """Return headers including the test API key."""
+    return {"X-API-Key": "test_api_key_for_unit_tests"}
