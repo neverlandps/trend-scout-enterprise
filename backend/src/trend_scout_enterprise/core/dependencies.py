@@ -10,32 +10,16 @@ from trend_scout_enterprise.models.models import ApiKey, Workspace
 from trend_scout_enterprise.services import workspace_service
 
 
-async def get_current_workspace(
-    x_workspace_id: str | None = Header(None, alias=settings.workspace_id_header),
-    x_api_key: str = Header(..., alias=settings.api_key_header),
-    db: Session = Depends(get_db),
-) -> Workspace:
-    """Resolve the authenticated API key and its requested/default workspace."""
-    key_hash = hash_api_key(x_api_key)
-    api_key = db.query(ApiKey).filter(
-        ApiKey.key_hash == key_hash, ApiKey.is_active == True
-    ).first()
-    if not api_key:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid API key",
-        )
-    api_key.last_used_at = __import__("datetime").datetime.utcnow()
-    db.commit()
-    db.refresh(api_key)
-    return workspace_service.resolve_workspace(db, api_key, x_workspace_id)
-
-
 async def get_current_api_key(
-    x_api_key: str = Header(..., alias=settings.api_key_header),
+    x_api_key: str | None = Header(None, alias=settings.api_key_header),
     db: Session = Depends(get_db),
 ) -> ApiKey:
     """Resolve the API key to an ApiKey entity."""
+    if not x_api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing API key",
+        )
     key_hash = hash_api_key(x_api_key)
     api_key = db.query(ApiKey).filter(
         ApiKey.key_hash == key_hash, ApiKey.is_active == True
@@ -49,3 +33,29 @@ async def get_current_api_key(
     db.commit()
     db.refresh(api_key)
     return api_key
+
+
+async def get_current_workspace(
+    x_workspace_id: str | None = Header(None, alias=settings.workspace_id_header),
+    x_api_key: str | None = Header(None, alias=settings.api_key_header),
+    db: Session = Depends(get_db),
+) -> Workspace:
+    """Resolve the authenticated API key and its requested/default workspace."""
+    if not x_api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing API key",
+        )
+    key_hash = hash_api_key(x_api_key)
+    api_key = db.query(ApiKey).filter(
+        ApiKey.key_hash == key_hash, ApiKey.is_active == True
+    ).first()
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid API key",
+        )
+    api_key.last_used_at = __import__("datetime").datetime.utcnow()
+    db.commit()
+    db.refresh(api_key)
+    return workspace_service.resolve_workspace(db, api_key, x_workspace_id)

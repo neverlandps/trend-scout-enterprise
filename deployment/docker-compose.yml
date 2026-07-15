@@ -1,17 +1,6 @@
 version: "3.8"
 
 services:
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: trend_scout
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
   redis:
     image: redis:7-alpine
     ports:
@@ -20,14 +9,14 @@ services:
       - redis_data:/data
 
   backend:
-    image: ${BACKEND_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/trend-scout-enterprise-backend:main}
+    image: ${BACKEND_IMAGE:-trend-scout-enterprise-backend:local}
     build:
       context: ..
       dockerfile: deployment/Dockerfile
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://postgres:postgres@postgres:5432/trend_scout}
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///data/trend_scout.db}
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -39,14 +28,13 @@ services:
     volumes:
       - app_data:/data
     depends_on:
-      - postgres
       - redis
 
   worker:
-    image: ${BACKEND_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/trend-scout-enterprise-backend:main}
-    command: celery -A trend_scout_enterprise.workers.scan_worker worker --loglevel=info --concurrency=2
+    image: ${BACKEND_IMAGE:-trend-scout-enterprise-backend:local}
+    command: ["celery", "-A", "trend_scout_enterprise.workers.scan_worker", "worker", "-l", "info"]
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://postgres:postgres@postgres:5432/trend_scout}
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///data/trend_scout.db}
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -58,15 +46,14 @@ services:
     volumes:
       - app_data:/data
     depends_on:
-      - postgres
       - redis
       - backend
 
   beat:
-    image: ${BACKEND_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/trend-scout-enterprise-backend:main}
-    command: celery -A trend_scout_enterprise.workers.beat_scheduler beat --loglevel=info
+    image: ${BACKEND_IMAGE:-trend-scout-enterprise-backend:local}
+    command: ["celery", "-A", "trend_scout_enterprise.workers.beat_scheduler", "beat", "-l", "info"]
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://postgres:postgres@postgres:5432/trend_scout}
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///data/trend_scout.db}
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -78,11 +65,9 @@ services:
     volumes:
       - app_data:/data
     depends_on:
-      - postgres
       - redis
       - backend
 
 volumes:
-  postgres_data:
   redis_data:
   app_data:
