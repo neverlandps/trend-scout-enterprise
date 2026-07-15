@@ -75,5 +75,3 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: false
           platforms: linux/amd64
-          build-args: |
-            BUILDKIT_INLINE_CACHE=1

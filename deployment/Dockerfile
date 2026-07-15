@@ -30,7 +30,7 @@ COPY backend/pyproject.toml ./
 COPY backend/src ./src
 
 RUN set -eux \
-    && python -m pip install --upgrade pip \
+    && python -m pip install --upgrade pip setuptools wheel \
     && python -m pip install --no-cache-dir -e "."
 
 # Ensure output directory exists and is writable
