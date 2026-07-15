@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Backend Tests and Docker Build
 
 on:
   push:
@@ -40,6 +40,14 @@ jobs:
 
       - name: Run backend tests
         run: python -m pytest tests/ -v
+
+      - name: Run backend smoke test
+        run: |
+          python -m uvicorn trend_scout_enterprise.main:app --host 127.0.0.1 --port 8000 &
+          sleep 3
+          python scripts/smoke_test.py
+        # Smoke test exits 0 even if Redis is unavailable; it validates the
+        # API surface, workspace routing, and trends aggregation.
 
   build-and-push:
     needs: test-backend

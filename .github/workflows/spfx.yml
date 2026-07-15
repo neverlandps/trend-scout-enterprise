@@ -6,6 +6,7 @@ on:
     tags: ['v*']
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   build-spfx:
@@ -13,6 +14,9 @@ jobs:
     defaults:
       run:
         working-directory: spfx-webpart
+    permissions:
+      contents: read
+      actions: write
     steps:
       - uses: actions/checkout@v4
 
@@ -20,11 +24,22 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+          # Use package.json as the cache key source when no lock file exists yet.
+          # Once a package-lock.json is committed, this can be replaced with cache: 'npm'.
           cache: 'npm'
-          # No package-lock.json committed for this skeleton; use npm install.
+          cache-dependency-path: 'spfx-webpart/package.json'
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --no-fund --no-audit --no-progress
+        # Generates package-lock.json if it is missing. The lock file is uploaded
+        # as an artifact so it can be reviewed and committed to the repository.
+
+      - name: Upload package-lock.json as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: trend-scout-spfx-package-lock
+          path: spfx-webpart/package-lock.json
+          if-no-files-found: warn
 
       - name: Build SPFx package
         run: |
@@ -36,3 +51,4 @@ jobs:
         with:
           name: trend-scout-spfx-webpart
           path: spfx-webpart/sharepoint/solution/*.sppkg
+          if-no-files-found: error
