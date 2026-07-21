@@ -114,8 +114,7 @@ export function SignalsPage() {
       } else if (status === 'all') {
         items = (await fetchSignals(undefined, undefined, 100, 0)).signals
       } else {
-        const all = (await fetchSignals(undefined, undefined, 100, 0)).signals
-        items = all.filter((s) => (s.review_status ?? 'auto') === status)
+        items = (await fetchSignals(undefined, undefined, 100, 0, status)).signals
       }
       setSignals(items)
       selection.setAllSelected(false)

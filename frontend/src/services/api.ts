@@ -296,11 +296,13 @@ export async function fetchSignals(
   sourceId?: string,
   minScore?: number,
   limit = 100,
-  offset = 0
+  offset = 0,
+  reviewStatus?: string
 ): Promise<{ signals: Signal[]; total: number }> {
   const params: Record<string, unknown> = { limit, offset }
   if (sourceId) params.source_id = sourceId
   if (minScore !== undefined) params.min_score = minScore
+  if (reviewStatus) params.review_status = reviewStatus
   const res = await api.get('/signals', { params })
   return res.data
 }

@@ -1,6 +1,6 @@
 """Pydantic schemas for authentication."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class MicrosoftAuthConfigIn(BaseModel):
@@ -23,8 +23,7 @@ class MicrosoftAuthConfigOut(BaseModel):
     redirect_uri: str
     is_enabled: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserInfo(BaseModel):

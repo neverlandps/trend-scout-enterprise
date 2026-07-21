@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta
 from typing import Literal
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from trend_scout_enterprise.models.models import RawItem, Source
 from trend_scout_enterprise.models.trends import TopicTrendPoint, TrendEvidence
@@ -200,6 +200,7 @@ def get_evidence_for_point(
     """Return traceable evidence for a trend point."""
     return (
         db.query(TrendEvidence)
+        .options(joinedload(TrendEvidence.raw_item), joinedload(TrendEvidence.source))
         .filter(TrendEvidence.trend_point_id == trend_point_id)
         .order_by(TrendEvidence.rank.asc())
         .all()

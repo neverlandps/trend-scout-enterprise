@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 Granularity = Literal["day", "week", "month"]
@@ -24,8 +24,7 @@ class TrendEvidenceOut(BaseModel):
     raw_item_url: str | None = None
     source_name: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TopicTrendPointOut(BaseModel):
@@ -49,8 +48,7 @@ class TopicTrendPointOut(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TrendSeriesOut(BaseModel):

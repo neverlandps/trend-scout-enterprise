@@ -52,9 +52,16 @@ def generate_pdf_report(db: Session, report: Report) -> str:
         .all()
     )
 
+    source_ids = {item.source_id for item in items if item.source_id}
+    sources = (
+        {s.id: s for s in db.query(Source).filter(Source.id.in_(source_ids)).all()}
+        if source_ids
+        else {}
+    )
+
     enriched_items = []
     for item in items:
-        source = db.query(Source).filter(Source.id == item.source_id).first()
+        source = sources.get(item.source_id)
         enriched_items.append(
             {
                 "id": item.id,

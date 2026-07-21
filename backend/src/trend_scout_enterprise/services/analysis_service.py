@@ -1,12 +1,24 @@
 """Analysis service for LLM-based signal analysis and trend extraction."""
 
+import asyncio
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.models.models import RawItem
+from trend_scout_enterprise.schemas.schemas import ScoringDimension
 from trend_scout_enterprise.services.llm_service import LlmService
-from trend_scout_enterprise.services.scoring_service import score_item_with_llm
+from trend_scout_enterprise.services.scoring_service import (
+    apply_llm_scores,
+    get_active_dimensions,
+    score_item_with_llm,
+    score_text_dimensions,
+)
+
+# Maximum number of concurrent LLM scoring calls in batch analysis.
+LLM_BATCH_CONCURRENCY = 5
+# Abort remaining LLM calls after this many consecutive failures.
+CIRCUIT_BREAKER_THRESHOLD = 5
 
 
 async def analyze_signal(
@@ -35,6 +47,12 @@ async def analyze_signals_batch(
 ) -> dict[str, Any]:
     """Analyze a batch of signals and return summary statistics.
 
+    LLM calls run concurrently (bounded by a semaphore), while all database
+    writes happen serially in the calling coroutine since SQLAlchemy sessions
+    are not coroutine-safe. If the LLM provider fails repeatedly (consecutive
+    failures reach ``CIRCUIT_BREAKER_THRESHOLD``), the circuit breaker trips
+    and the remaining items are marked failed without further LLM calls.
+
     Args:
         db: SQLAlchemy session.
         item_ids: List of signal UUIDs to analyze.
@@ -48,17 +66,62 @@ async def analyze_signals_batch(
     failed = 0
     total_score = 0.0
 
+    items = {item.id: item for item in db.query(RawItem).filter(RawItem.id.in_(item_ids)).all()}
+
+    # Build the scoring plan serially (dimension lookup touches the session).
+    plans: list[tuple[RawItem, list[ScoringDimension], str]] = []
+    dimensions_by_workspace: dict[str | None, list[ScoringDimension]] = {}
     for item_id in item_ids:
-        item = db.query(RawItem).filter(RawItem.id == item_id).first()
-        if not item:
+        item = items.get(item_id)
+        if item is None:
+            failed += 1
+            continue
+        workspace_id = getattr(item, "workspace_id", None)
+        if workspace_id not in dimensions_by_workspace:
+            dimensions_by_workspace[workspace_id] = get_active_dimensions(
+                db, workspace_id=workspace_id
+            )
+        dimensions = dimensions_by_workspace[workspace_id]
+        text = f"{item.title or ''}\n{item.summary or ''}"
+        plans.append((item, dimensions, text))
+
+    semaphore = asyncio.Semaphore(LLM_BATCH_CONCURRENCY)
+    consecutive_failures = 0
+
+    async def _call_llm(text: str, dim_names: list[str]) -> dict[str, float] | None:
+        nonlocal consecutive_failures
+        if consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
+            return None
+        async with semaphore:
+            if consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
+                return None
+            try:
+                scores = await score_text_dimensions(text, dim_names, service)
+            except Exception:
+                consecutive_failures += 1
+                return None
+            consecutive_failures = 0
+            return scores
+
+    llm_results = await asyncio.gather(
+        *(
+            _call_llm(text, [d.name for d in dimensions if d.enabled])
+            for _, dimensions, text in plans
+        )
+    )
+
+    # Persist results serially in the main coroutine.
+    for (item, dimensions, _), scores in zip(plans, llm_results, strict=True):
+        if scores is None:
             failed += 1
             continue
         try:
-            updated = await score_item_with_llm(db, item, service)
+            updated = apply_llm_scores(db, item, dimensions, scores)
             if updated.overall_score is not None:
                 total_score += updated.overall_score
             analyzed += 1
         except Exception:
+            db.rollback()
             failed += 1
 
     average_score = total_score / analyzed if analyzed > 0 else 0.0

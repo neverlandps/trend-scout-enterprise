@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { SignalsPage } from '../pages/SignalsPage'
 import type { Signal } from '../services/api'
 
@@ -91,6 +91,32 @@ describe('SignalsPage', () => {
     render(<SignalsPage />)
     await waitFor(() => {
       expect(screen.getByText(/boom/)).toBeInTheDocument()
+    })
+  })
+
+  it('passes review_status to fetchSignals for status tabs', async () => {
+    render(<SignalsPage />)
+    await waitFor(() => {
+      expect(api.fetchReviewQueue).toHaveBeenCalled()
+    })
+    fireEvent.click(screen.getByText('Approved'))
+    await waitFor(() => {
+      expect(api.fetchSignals).toHaveBeenCalledWith(undefined, undefined, 100, 0, 'approved')
+    })
+    fireEvent.click(screen.getByText('Rejected'))
+    await waitFor(() => {
+      expect(api.fetchSignals).toHaveBeenCalledWith(undefined, undefined, 100, 0, 'rejected')
+    })
+  })
+
+  it('omits review_status for the All tab', async () => {
+    render(<SignalsPage />)
+    await waitFor(() => {
+      expect(api.fetchReviewQueue).toHaveBeenCalled()
+    })
+    fireEvent.click(screen.getByText('All'))
+    await waitFor(() => {
+      expect(api.fetchSignals).toHaveBeenCalledWith(undefined, undefined, 100, 0)
     })
   })
 })

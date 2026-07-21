@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 
 # ---------------------------------------------------------------------------
@@ -50,8 +50,7 @@ class SourceOut(SourceBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SourceListOut(BaseModel):
@@ -106,8 +105,7 @@ class ScanRunOut(ScanRunBase):
     error_log: list[str] = Field(default_factory=list)
     suggested_fix: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ScanListOut(BaseModel):
@@ -143,8 +141,7 @@ class RawItemOut(BaseModel):
     human_score: float | None = None
     assigned_reviewer_id: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SignalListOut(BaseModel):
@@ -208,8 +205,7 @@ class ReviewOut(BaseModel):
     notes: str | None = None
     created_at: datetime | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BulkReviewFailure(BaseModel):
@@ -253,8 +249,7 @@ class ScoringProfileOut(ScoringProfileBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ScoringSettingsOut(BaseModel):
@@ -295,8 +290,7 @@ class LlmProviderOut(LlmProviderBase):
     id: str
     api_key: str | None = None  # masked in responses
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LlmSettingsOut(BaseModel):
@@ -347,8 +341,7 @@ class ReportOut(ReportBase):
     created_at: datetime
     metadata_json: dict[str, Any] = Field(default_factory=dict)
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ReportListOut(BaseModel):
@@ -383,8 +376,7 @@ class ApiKeyOut(BaseModel):
     created_at: datetime
     last_used_at: datetime | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ApiKeyCreate(BaseModel):
