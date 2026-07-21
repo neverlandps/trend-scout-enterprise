@@ -6,6 +6,7 @@ is rolled back, logged as a warning, and swallowed.
 """
 
 import uuid
+from typing import Any
 
 import structlog
 from sqlalchemy.orm import Session
@@ -24,7 +25,7 @@ def record_audit(
     workspace_id: str | None = None,
     resource_type: str | None = None,
     resource_id: str | None = None,
-    detail: dict | None = None,
+    detail: dict[str, Any] | None = None,
     ip: str | None = None,
 ) -> None:
     """Record an audit log entry; failures are logged but never raised."""
