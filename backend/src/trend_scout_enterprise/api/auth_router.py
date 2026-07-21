@@ -1,11 +1,12 @@
 """Authentication endpoints for Microsoft Entra ID and internal sessions."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.core.database import get_db
+from trend_scout_enterprise.core.rate_limit import limiter
 from trend_scout_enterprise.core.dummy_auth import (
     create_jwt_for_user,
     exchange_dummy_code_for_user,
@@ -27,7 +28,8 @@ router = APIRouter()
 
 
 @router.get("/auth/microsoft/login")
-def microsoft_login(state: str = "", db: Session = Depends(get_db)):
+@limiter.limit("20/minute")
+def microsoft_login(request: Request, state: str = "", db: Session = Depends(get_db)):
     """Redirect the user to Microsoft login or dummy login flow."""
     if settings.entra_dummy_mode:
         redirect_url = get_dummy_authorization_url(
@@ -46,7 +48,8 @@ def microsoft_login(state: str = "", db: Session = Depends(get_db)):
 
 
 @router.get("/auth/microsoft/callback")
-def microsoft_callback(code: str, state: str = "", db: Session = Depends(get_db)):
+@limiter.limit("20/minute")
+def microsoft_callback(request: Request, code: str, state: str = "", db: Session = Depends(get_db)):
     """Handle Microsoft OAuth2 callback and issue internal JWT."""
     if settings.entra_dummy_mode:
         user = exchange_dummy_code_for_user(code)
@@ -67,7 +70,10 @@ def microsoft_callback(code: str, state: str = "", db: Session = Depends(get_db)
 
 
 @router.post("/auth/microsoft/config", response_model=MicrosoftAuthConfigOut)
-def configure_microsoft_auth(config_in: MicrosoftAuthConfigIn, db: Session = Depends(get_db)):
+@limiter.limit("20/minute")
+def configure_microsoft_auth(
+    request: Request, config_in: MicrosoftAuthConfigIn, db: Session = Depends(get_db)
+):
     """Create or update the Microsoft Entra ID configuration."""
     config = create_or_update_auth_config(
         db=db,

@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 
 from trend_scout_enterprise.scanners.base import BaseScanner, RawSignal
+from trend_scout_enterprise.scanners.url_validator import validate_outbound_url
 
 
 class CustomApiScanner(BaseScanner):
@@ -37,6 +38,7 @@ class CustomApiScanner(BaseScanner):
         url = self.config.get("url")
         if not url:
             return []
+        validate_outbound_url(url)
 
         method = self.config.get("method", "GET").upper()
         headers: dict[str, str] = {"Accept": "application/json"}

@@ -15,7 +15,7 @@ class EmbedToken(Base):
     id = Column(String(36), primary_key=True)
     workspace_id = Column(String(36), ForeignKey("workspaces.id"), nullable=False)
     name = Column(String(255), nullable=False, default="Embed")
-    token_hash = Column(String(128), nullable=False, unique=True)
+    token_hash = Column(String(255), nullable=False, unique=True)
     token_prefix = Column(String(16), nullable=False)
     scopes = Column(Text, nullable=False, default="read")
     expires_at = Column(DateTime, nullable=False)

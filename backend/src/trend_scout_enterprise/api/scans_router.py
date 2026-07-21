@@ -1,11 +1,12 @@
 """Scan run API endpoints with Celery integration."""
 
 from datetime import datetime
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.core.database import get_db
 from trend_scout_enterprise.core.dependencies import get_current_api_key, get_current_workspace
+from trend_scout_enterprise.core.rate_limit import limiter
 from trend_scout_enterprise.models.models import ApiKey, ScanRun, Source, Workspace
 from trend_scout_enterprise.schemas import ScanListOut, ScanRunCreate, ScanRunOut
 from trend_scout_enterprise.workers.scan_worker import run_scan as run_scan_task
@@ -14,8 +15,10 @@ router = APIRouter()
 
 
 @router.post("/scans", response_model=ScanRunOut, status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("10/minute")
 def trigger_scan(
-    request: ScanRunCreate,
+    request: Request,
+    payload: ScanRunCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     api_key: ApiKey = Depends(get_current_api_key),
@@ -23,7 +26,7 @@ def trigger_scan(
 ) -> ScanRunOut:
     """Queue a new scan run for a source in the current workspace."""
     source = db.query(Source).filter(
-        Source.id == request.source_id, Source.workspace_id == workspace.id
+        Source.id == payload.source_id, Source.workspace_id == workspace.id
     ).first()
     if not source:
         raise HTTPException(
@@ -35,7 +38,7 @@ def trigger_scan(
     db_scan = ScanRun(
         id=uuid.uuid4().hex,
         workspace_id=workspace.id,
-        source_id=request.source_id,
+        source_id=payload.source_id,
         status="pending",
         started_at=datetime.utcnow(),
     )

@@ -77,6 +77,7 @@ class TrendAggregateRequest(BaseModel):
     end_date: date | None = None
     granularity: Granularity = "week"
     top_evidence_count: int = Field(default=5, ge=1, le=20)
+    only_approved: bool = False
 
 
 class TrendListRequest(BaseModel):

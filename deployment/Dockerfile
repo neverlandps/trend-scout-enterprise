@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 
-FROM python:3.11-bookworm
+# ---------- builder stage ----------
+FROM python:3.11-bookworm AS builder
 
 ARG PIP_INDEX_URL=https://mirrors.cloud.tencent.com/pypi/simple/
 ARG PIP_TRUSTED_HOST=mirrors.cloud.tencent.com
@@ -16,19 +17,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install native libraries required by WeasyPrint and psycopg2.
+# Build toolchain and development headers for psycopg2 and WeasyPrint (pango).
 RUN set -eux \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        libpango-1.0-0 \
-        libpangoft2-1.0-0 \
-        libharfbuzz0b \
-        libpangocairo-1.0-0 \
-        libgdk-pixbuf2.0-0 \
-        shared-mime-info \
-        libpq-dev \
         gcc \
         python3-dev \
+        libpq-dev \
+        libpango1.0-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
@@ -39,12 +35,46 @@ COPY backend/README.md ./
 COPY backend/src ./src
 
 RUN set -eux \
-    && python -m pip install --index-url https://mirrors.cloud.tencent.com/pypi/simple/ --trusted-host mirrors.cloud.tencent.com --upgrade pip setuptools wheel \
-    && python -m pip install --index-url https://mirrors.cloud.tencent.com/pypi/simple/ --trusted-host mirrors.cloud.tencent.com --no-cache-dir --retries 10 --timeout 120 -r requirements.txt \
-    && python -m pip install --index-url https://mirrors.cloud.tencent.com/pypi/simple/ --trusted-host mirrors.cloud.tencent.com --no-cache-dir --retries 10 --timeout 120 -e "."
+    && python -m venv /opt/venv \
+    && /opt/venv/bin/pip install --upgrade pip setuptools wheel \
+    && /opt/venv/bin/pip install -r requirements.txt \
+    && /opt/venv/bin/pip install .
 
-# Ensure output directory exists and is writable
-RUN mkdir -p /data/outputs && chmod 777 /data/outputs
+# ---------- runtime stage ----------
+FROM python:3.11-slim-bookworm
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /app
+
+# Runtime libraries only: WeasyPrint (pango stack), psycopg2 (libpq), curl for the healthcheck.
+RUN set -eux \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libpango-1.0-0 \
+        libpangoft2-1.0-0 \
+        libharfbuzz0b \
+        libpangocairo-1.0-0 \
+        libgdk-pixbuf2.0-0 \
+        shared-mime-info \
+        libpq5 \
+        curl \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+COPY --from=builder /opt/venv /opt/venv
+COPY backend/src ./src
+
+# Run as an unprivileged user.
+RUN set -eux \
+    && useradd --uid 1000 --create-home --shell /usr/sbin/nologin app \
+    && mkdir -p /data/outputs \
+    && chown -R app:app /data/outputs \
+    && chmod 750 /data/outputs
+
+USER app
 
 EXPOSE 8000
 

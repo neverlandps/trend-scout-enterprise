@@ -2,24 +2,19 @@
 
 from __future__ import annotations
 
-from celery import Celery
+import structlog
 from sqlalchemy.orm import Session
 
-from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.core.database import SessionLocal
 from trend_scout_enterprise.models.models import Report
 from trend_scout_enterprise.services.analysis_service import summarize_trends
 from trend_scout_enterprise.services.card_report_service import generate_card_report
-from trend_scout_enterprise.services.llm_service import LlmService
+from trend_scout_enterprise.services.llm_service import get_default_llm_service_or_none
 from trend_scout_enterprise.services.ppt_report_service import generate_ppt_report
 from trend_scout_enterprise.services.report_service import generate_pdf_report
-from trend_scout_enterprise.workers.scan_worker import _get_default_llm_service
+from trend_scout_enterprise.workers.celery_app import celery_app
 
-celery_app = Celery(
-    "trend_scout_enterprise",
-    broker=settings.celery_broker_url,
-    backend=settings.celery_result_backend,
-)
+logger = structlog.get_logger(__name__)
 
 
 def _get_db() -> Session:
@@ -44,14 +39,15 @@ def generate_report(self, report_id: str) -> dict:
             raise ValueError(f"Report {report_id} not found")
 
         item_ids = report.metadata_json.get("item_ids", [])
-        llm_service = _get_default_llm_service(db)
+        llm_service = get_default_llm_service_or_none(db)
         summary = ""
         if llm_service and item_ids:
             try:
                 import asyncio
 
                 summary = asyncio.run(summarize_trends(db, item_ids, llm_service))
-            except Exception:
+            except Exception as exc:
+                logger.warning("report_summary_failed", report_id=report_id, error=str(exc))
                 summary = ""
         report.summary_text = summary
 
@@ -65,6 +61,7 @@ def generate_report(self, report_id: str) -> dict:
         if report:
             report.status = "failed"
             db.commit()
+        logger.error("report_generation_failed", report_id=report_id, error=str(exc))
         raise self.retry(exc=exc)
     finally:
         db.close()

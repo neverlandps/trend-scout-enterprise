@@ -11,6 +11,7 @@ export function Layout() {
           <nav style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <NavLink to="/sources">Sources</NavLink>
             <NavLink to="/scans">Scans</NavLink>
+            <NavLink to="/signals">Signals</NavLink>
             <NavLink to="/reports">Reports</NavLink>
             <NavLink to="/trends">Trends</NavLink>
             <NavLink to="/settings">Settings</NavLink>

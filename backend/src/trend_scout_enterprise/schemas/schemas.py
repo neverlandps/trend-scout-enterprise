@@ -1,7 +1,7 @@
 """Pydantic schemas for API request/response validation."""
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, HttpUrl
 
@@ -139,6 +139,9 @@ class RawItemOut(BaseModel):
     technical_feasibility: float | None = None
     strategic_fit: float | None = None
     overall_score: float | None = None
+    review_status: str = "auto"
+    human_score: float | None = None
+    assigned_reviewer_id: str | None = None
 
     class Config:
         from_attributes = True
@@ -163,6 +166,64 @@ class SignalAnalyzeOut(BaseModel):
     analyzed: int
     failed: int
     average_score: float
+
+
+# ---------------------------------------------------------------------------
+# Signal Review (Human-in-the-Loop)
+# ---------------------------------------------------------------------------
+
+class ReviewActionRequest(BaseModel):
+    """Request schema for a single review action on a signal."""
+
+    action: Literal["approve", "reject", "flag", "override"]
+    human_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    notes: str | None = None
+
+
+class BulkReviewRequest(BaseModel):
+    """Request schema for applying a review action to multiple signals."""
+
+    item_ids: list[str]
+    action: Literal["approve", "reject", "flag"]
+    notes: str | None = None
+
+
+class FeedbackRequest(BaseModel):
+    """Request schema for submitting reviewer feedback on a signal."""
+
+    human_score: float = Field(..., ge=0.0, le=1.0)
+    feedback_type: str = Field(..., max_length=50)
+    notes: str | None = None
+
+
+class ReviewOut(BaseModel):
+    """Response schema for a recorded signal review."""
+
+    id: str
+    raw_item_id: str
+    workspace_id: str
+    reviewer_id: str | None = None
+    status: str
+    human_score: float | None = None
+    notes: str | None = None
+    created_at: datetime | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class BulkReviewFailure(BaseModel):
+    """Failure detail for a single item in a bulk review."""
+
+    id: str
+    error: str
+
+
+class BulkReviewResult(BaseModel):
+    """Response schema for a bulk review operation."""
+
+    succeeded: list[str]
+    failed: list[BulkReviewFailure]
 
 
 # ---------------------------------------------------------------------------

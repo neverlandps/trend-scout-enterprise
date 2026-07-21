@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from trend_scout_enterprise.core.audit import record_audit
 from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.core.database import get_db
 from trend_scout_enterprise.core.encryption import encrypt_value
@@ -65,6 +66,15 @@ def update_llm_settings(
         setattr(provider, field, value)
     db.commit()
     db.refresh(provider)
+    record_audit(
+        db,
+        actor_id=api_key.id,
+        actor_type="api_key",
+        action="settings.llm.update",
+        resource_type="llm_provider",
+        resource_id=provider.id,
+        detail={"fields": sorted(update_data.keys())},
+    )
     return LlmSettingsOut(
         base_url=provider.base_url,
         model=provider.model,
@@ -123,6 +133,15 @@ def create_llm_provider(
     db.add(provider)
     db.commit()
     db.refresh(provider)
+    record_audit(
+        db,
+        actor_id=api_key.id,
+        actor_type="api_key",
+        action="settings.llm.provider.create",
+        resource_type="llm_provider",
+        resource_id=provider.id,
+        detail={"name": provider.name, "is_default": provider.is_default},
+    )
     return LlmProviderOut(
         id=provider.id,
         name=provider.name,
@@ -181,4 +200,13 @@ def update_scoring_settings(
     profile.dimensions = [d.model_dump() for d in payload.dimensions]
     db.commit()
     db.refresh(profile)
+    record_audit(
+        db,
+        actor_id=api_key.id,
+        actor_type="api_key",
+        action="settings.scoring.update",
+        workspace_id=workspace.id,
+        resource_type="scoring_profile",
+        resource_id=profile.id,
+    )
     return ScoringSettingsOut(dimensions=profile.dimensions)

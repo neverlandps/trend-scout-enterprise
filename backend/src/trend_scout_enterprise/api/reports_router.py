@@ -1,6 +1,6 @@
 """Report generation API endpoints with Celery integration."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.core.database import get_db
@@ -9,6 +9,7 @@ from trend_scout_enterprise.core.dependencies import (
     get_current_workspace,
     get_current_workspace_unified,
 )
+from trend_scout_enterprise.core.rate_limit import limiter
 from trend_scout_enterprise.models.models import ApiKey, RawItem, Report, Source, Workspace
 from trend_scout_enterprise.schemas import ReportCreate, ReportListOut, ReportOut
 from trend_scout_enterprise.workers.report_worker import generate_report as generate_report_task
@@ -32,20 +33,22 @@ def list_reports(
 
 
 @router.post("/reports", response_model=ReportOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
 def create_report(
-    request: ReportCreate,
+    request: Request,
+    payload: ReportCreate,
     db: Session = Depends(get_db),
     api_key: ApiKey = Depends(get_current_api_key),
     workspace: Workspace = Depends(get_current_workspace),
 ) -> ReportOut:
     """Create a new report generation job and enqueue Celery task."""
-    if request.item_ids:
+    if payload.item_ids:
         count = (
             db.query(RawItem)
-            .filter(RawItem.id.in_(request.item_ids), RawItem.workspace_id == workspace.id)
+            .filter(RawItem.id.in_(payload.item_ids), RawItem.workspace_id == workspace.id)
             .count()
         )
-        if count != len(request.item_ids):
+        if count != len(payload.item_ids):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Some item_ids are invalid or not owned by this API key",
@@ -56,10 +59,10 @@ def create_report(
         id=uuid.uuid4().hex,
         workspace_id=workspace.id,
         owner_id=api_key.id,
-        title=request.title,
-        report_type=request.report_type,
+        title=payload.title,
+        report_type=payload.report_type,
         status="generating",
-        metadata_json={"item_ids": request.item_ids or [], "filters": request.filters or {}},
+        metadata_json={"item_ids": payload.item_ids or [], "filters": payload.filters or {}},
     )
     db.add(db_report)
     db.commit()

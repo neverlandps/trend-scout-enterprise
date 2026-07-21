@@ -16,6 +16,26 @@ env:
 jobs:
   test-backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: trend_scout
+          POSTGRES_PASSWORD: trend_scout
+          POSTGRES_DB: trend_scout
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U trend_scout -d trend_scout"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg2://trend_scout:trend_scout@localhost:5432/trend_scout
+      TEST_DATABASE_URL: postgresql+psycopg2://trend_scout:trend_scout@localhost:5432/trend_scout
+      SECRET_KEY: ci-test-secret
+      ENCRYPTION_SALT: dGVzdC1zYWx0LTEyMzQ1Ng==
+      TESTING: "1"
     defaults:
       run:
         working-directory: backend

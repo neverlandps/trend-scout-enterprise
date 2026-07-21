@@ -4,7 +4,9 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.models.models import RawItem, ScoringProfile
+from trend_scout_enterprise.models.review_assignment import ReviewAssignment
 from trend_scout_enterprise.schemas.schemas import ScoringDimension
 from trend_scout_enterprise.services.llm_service import LlmService
 
@@ -120,6 +122,38 @@ async def score_item_with_llm(
         if field:
             setattr(item, field, score)
     item.overall_score = calculate_composite_score(item, dimensions)
+    _apply_review_routing(db, item)
     db.commit()
     db.refresh(item)
     return item
+
+
+def _apply_review_routing(db: Session, item: RawItem) -> None:
+    """Route a scored item through the human review workflow when enabled.
+
+    When review mode is disabled the item keeps its default ``auto``
+    review_status, preserving the legacy behavior. When enabled, items
+    at or above the auto-approve threshold are approved automatically;
+    anything below it is queued for human review and assigned to the
+    reviewer configured for the item's source category, if any.
+    """
+    if not settings.review_mode_enabled:
+        return
+    score = item.overall_score if item.overall_score is not None else 0.0
+    if score >= settings.auto_approve_threshold:
+        item.review_status = "approved"
+        return
+    item.review_status = "pending_review"
+    source = item.source
+    category = source.category if source is not None else None
+    if category:
+        assignment = (
+            db.query(ReviewAssignment)
+            .filter(
+                ReviewAssignment.workspace_id == item.workspace_id,
+                ReviewAssignment.category == category,
+            )
+            .first()
+        )
+        if assignment:
+            item.assigned_reviewer_id = assignment.reviewer_id

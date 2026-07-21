@@ -1,4 +1,5 @@
 import click
+
 from trend_scout_enterprise.cli.migrate_sqlite_to_postgres import migrate
 
 

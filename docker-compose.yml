@@ -8,6 +8,20 @@ services:
     volumes:
       - redis-data:/data
 
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=trend_scout
+      - POSTGRES_PASSWORD=trend_scout
+      - POSTGRES_DB=trend_scout
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trend_scout -d trend_scout"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: .
@@ -16,15 +30,26 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=sqlite:///data/trend_scout.db
+      - DATABASE_URL=postgresql+psycopg2://trend_scout:trend_scout@postgres:5432/trend_scout
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:?must set SECRET_KEY}
+      - ENCRYPTION_SALT=${ENCRYPTION_SALT:?must set ENCRYPTION_SALT}
       - PIP_INDEX_URL=https://mirrors.cloud.tencent.com/pypi/simple/
       - PIP_TRUSTED_HOST=mirrors.cloud.tencent.com
     volumes:
       - app-data:/data
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   worker:
     build:
@@ -33,16 +58,22 @@ services:
     container_name: trend-scout-worker
     command: ["celery", "-A", "trend_scout_enterprise.workers.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
     environment:
-      - DATABASE_URL=sqlite:///data/trend_scout.db
+      - DATABASE_URL=postgresql+psycopg2://trend_scout:trend_scout@postgres:5432/trend_scout
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:?must set SECRET_KEY}
+      - ENCRYPTION_SALT=${ENCRYPTION_SALT:?must set ENCRYPTION_SALT}
       - PIP_INDEX_URL=https://mirrors.cloud.tencent.com/pypi/simple/
       - PIP_TRUSTED_HOST=mirrors.cloud.tencent.com
     volumes:
       - app-data:/data
     depends_on:
-      - redis
-      - backend
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      backend:
+        condition: service_started
 
   beat:
     build:
@@ -51,17 +82,24 @@ services:
     container_name: trend-scout-beat
     command: ["celery", "-A", "trend_scout_enterprise.workers.celery_app", "beat", "--loglevel=info"]
     environment:
-      - DATABASE_URL=sqlite:///data/trend_scout.db
+      - DATABASE_URL=postgresql+psycopg2://trend_scout:trend_scout@postgres:5432/trend_scout
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:?must set SECRET_KEY}
+      - ENCRYPTION_SALT=${ENCRYPTION_SALT:?must set ENCRYPTION_SALT}
       - PIP_INDEX_URL=https://mirrors.cloud.tencent.com/pypi/simple/
       - PIP_TRUSTED_HOST=mirrors.cloud.tencent.com
     volumes:
       - app-data:/data
     depends_on:
-      - redis
-      - backend
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      backend:
+        condition: service_started
 
 volumes:
   redis-data:
   app-data:
+  pg-data:

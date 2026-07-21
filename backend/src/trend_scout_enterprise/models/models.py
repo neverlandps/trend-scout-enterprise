@@ -53,7 +53,7 @@ class ApiKey(Base):
 
     id = Column(String(36), primary_key=True)
     name = Column(String(255), nullable=False)
-    key_hash = Column(String(128), nullable=False, unique=True)
+    key_hash = Column(String(255), nullable=False, unique=True)
     key_prefix = Column(String(16), nullable=False)
     is_active = Column(Boolean, default=True)
     role = Column(String(50), default="analyst")
@@ -137,9 +137,16 @@ class RawItem(Base):
     technical_feasibility = Column(Float)
     strategic_fit = Column(Float)
     overall_score = Column(Float)
+    review_status = Column(String(20), default="auto", index=True)
+    human_score = Column(Float, nullable=True)
+    assigned_reviewer_id = Column(String(36), ForeignKey("api_keys.id"), nullable=True)
 
     source = relationship("Source")
     workspace = relationship("Workspace")
+    assigned_reviewer = relationship("ApiKey")
+    reviews = relationship(
+        "SignalReview", back_populates="raw_item", cascade="all, delete-orphan"
+    )
 
 
 

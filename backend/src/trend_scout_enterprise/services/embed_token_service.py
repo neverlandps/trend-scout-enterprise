@@ -7,11 +7,15 @@ from typing import List
 
 from sqlalchemy.orm import Session
 
-from trend_scout_enterprise.core.security import hash_api_key, get_key_prefix
+from trend_scout_enterprise.core.security import (
+    get_key_prefix,
+    hash_api_key,
+    needs_rehash,
+    verify_api_key_hash,
+)
 from trend_scout_enterprise.models.embed_token import EmbedToken
 from trend_scout_enterprise.models.models import ApiKey, Workspace
 from trend_scout_enterprise.services import workspace_service
-
 
 EMBED_TOKEN_PREFIX = "tse_embed_"
 
@@ -56,11 +60,19 @@ def verify_embed_token(
     """Validate an embed token and update last_used_at. Returns token or raises HTTPException."""
     from fastapi import HTTPException, status
 
-    token_hash = hash_api_key(plaintext)
-    token = db.query(EmbedToken).filter(
-        EmbedToken.token_hash == token_hash,
+    candidates = db.query(EmbedToken).filter(
+        EmbedToken.token_prefix == get_key_prefix(plaintext, length=8),
         EmbedToken.revoked_at.is_(None),
-    ).first()
+    ).all()
+
+    token = None
+    for candidate in candidates:
+        if verify_api_key_hash(plaintext, candidate.token_hash):
+            if needs_rehash(candidate.token_hash):
+                candidate.token_hash = hash_api_key(plaintext)
+                db.commit()
+            token = candidate
+            break
 
     if not token:
         raise HTTPException(

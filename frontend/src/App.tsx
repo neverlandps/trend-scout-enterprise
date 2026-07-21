@@ -11,6 +11,7 @@ const SettingsPage = React.lazy(() => import('./pages/SettingsPage').then(m => (
 const LoginPage = React.lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })))
 const TeamPage = React.lazy(() => import('./pages/TeamPage').then(m => ({ default: m.TeamPage })))
 const TrendsPage = React.lazy(() => import('./pages/TrendsPage').then(m => ({ default: m.TrendsPage })))
+const SignalsPage = React.lazy(() => import('./pages/SignalsPage').then(m => ({ default: m.SignalsPage })))
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
             <Route path="scans" element={<ScansPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="trends" element={<TrendsPage />} />
+            <Route path="signals" element={<SignalsPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="team" element={<TeamPage />} />
           </Route>

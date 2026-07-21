@@ -7,6 +7,7 @@ import feedparser
 import httpx
 
 from trend_scout_enterprise.scanners.base import BaseScanner, RawSignal
+from trend_scout_enterprise.scanners.url_validator import validate_outbound_url
 
 
 class RssScanner(BaseScanner):
@@ -28,6 +29,7 @@ class RssScanner(BaseScanner):
         url = self.config.get("url")
         if not url:
             return []
+        validate_outbound_url(url)
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(url)
             response.raise_for_status()

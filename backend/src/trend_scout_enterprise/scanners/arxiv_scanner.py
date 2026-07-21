@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 
 from trend_scout_enterprise.scanners.base import BaseScanner, RawSignal
+from trend_scout_enterprise.scanners.url_validator import validate_outbound_url
 
 
 ARXIV_API_URL = "http://export.arxiv.org/api/query"
@@ -29,6 +30,9 @@ class ArxivScanner(BaseScanner):
         """
         query = self.config.get("query", "cat:cs.AI")
         max_results = self.config.get("max_results", 10)
+        # The query only fills request params, so scheme/host stay fixed;
+        # validate the base URL before issuing the request.
+        validate_outbound_url(ARXIV_API_URL)
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(
                 ARXIV_API_URL,

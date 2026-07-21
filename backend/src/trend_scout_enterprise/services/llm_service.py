@@ -4,12 +4,15 @@ import json
 from typing import Any
 
 import httpx
+import structlog
 
 from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.core.encryption import decrypt_value, encrypt_value
 from trend_scout_enterprise.models.llm_fallback import LlmFallbackProvider, LlmHealthLog
 from trend_scout_enterprise.models.models import LlmProvider
 
+
+logger = structlog.get_logger(__name__)
 
 DEFAULT_TIMEOUT = 60.0
 
@@ -301,3 +304,12 @@ def build_llm_service_with_fallback(
             fallback_providers=fallback_configs,
         )
     return LlmService(fallback_providers=fallback_configs)
+
+
+def get_default_llm_service_or_none(db: Any) -> LlmService | None:
+    """Build the default LlmService, returning None if configuration fails."""
+    try:
+        return build_llm_service_with_fallback(db)
+    except Exception as exc:
+        logger.warning("llm_service_unavailable", error=str(exc))
+        return None

@@ -1,20 +1,81 @@
 """API key authentication dependency."""
 
-from fastapi import Header, HTTPException, status, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import hashlib
+
+import structlog
+from fastapi import Depends, Header, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.core.database import get_db
 
+logger = structlog.get_logger(__name__)
+
 security_bearer = HTTPBearer(auto_error=False)
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+_SHA256_HEX_LENGTH = 64
+
+
+def _is_legacy_sha256(stored_hash: str) -> bool:
+    """Return True if the stored hash looks like a legacy unsalted SHA-256 hex digest."""
+    if len(stored_hash) != _SHA256_HEX_LENGTH:
+        return False
+    try:
+        int(stored_hash, 16)
+    except ValueError:
+        return False
+    return True
 
 
 def hash_api_key(plaintext: str) -> str:
-    """Return a deterministic hash of an API key for storage."""
-    import hashlib
+    """Hash an API key with bcrypt for storage."""
+    return pwd_context.hash(plaintext)
 
-    return hashlib.sha256(plaintext.encode()).hexdigest()
+
+def verify_api_key_hash(plaintext: str, stored_hash: str) -> bool:
+    """Verify a plaintext key against a stored hash.
+
+    Supports legacy unsalted SHA-256 hex digests for migration, and bcrypt
+    hashes for all newly stored keys.
+    """
+    if _is_legacy_sha256(stored_hash):
+        return hashlib.sha256(plaintext.encode()).hexdigest() == stored_hash
+    try:
+        return pwd_context.verify(plaintext, stored_hash)
+    except Exception:
+        return False
+
+
+def needs_rehash(stored_hash: str) -> bool:
+    """Return True if the stored hash uses the legacy SHA-256 scheme."""
+    return _is_legacy_sha256(stored_hash)
+
+
+def lookup_api_key_by_plaintext(db: Session, plaintext: str):
+    """Find an active ApiKey matching the plaintext key, upgrading legacy hashes.
+
+    Candidates are selected by key_prefix, then verified individually. A legacy
+    SHA-256 hash that verifies is transparently re-hashed with bcrypt and
+    committed back to the database.
+    """
+    from trend_scout_enterprise.models.models import ApiKey
+
+    candidates = db.query(ApiKey).filter(
+        ApiKey.key_prefix == get_key_prefix(plaintext),
+        ApiKey.is_active == True,  # noqa: E712
+    ).all()
+    for api_key in candidates:
+        if verify_api_key_hash(plaintext, api_key.key_hash):
+            if needs_rehash(api_key.key_hash):
+                api_key.key_hash = hash_api_key(plaintext)
+                db.commit()
+                logger.info("api_key_rehashed_to_bcrypt", key_prefix=api_key.key_prefix)
+            return api_key
+    return None
 
 
 def get_key_prefix(plaintext: str, length: int = 8) -> str:
@@ -84,13 +145,8 @@ def resolve_current_identity(
     Returns a dict with at least {'type': 'api_key'|'jwt', 'id': ..., 'email': ...}.
     API key takes precedence if both are provided.
     """
-    from trend_scout_enterprise.models.models import ApiKey
-
     if x_api_key:
-        key_hash = hash_api_key(x_api_key)
-        api_key = db.query(ApiKey).filter(
-            ApiKey.key_hash == key_hash, ApiKey.is_active == True
-        ).first()
+        api_key = lookup_api_key_by_plaintext(db, x_api_key)
         if not api_key:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -116,10 +172,11 @@ def resolve_current_identity(
                 "role": "analyst",
             }
         except Exception as exc:
+            logger.warning("jwt_decode_failed", error=str(exc))
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Invalid JWT: {exc}",
-            )
+                detail="Invalid JWT",
+            ) from exc
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

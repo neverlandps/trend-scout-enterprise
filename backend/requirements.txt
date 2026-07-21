@@ -26,3 +26,5 @@ markdown==3.10.2
 click==8.3.2
 structlog==26.1.0
 croniter==6.2.2
+slowapi==0.1.10
+limits==5.8.0
