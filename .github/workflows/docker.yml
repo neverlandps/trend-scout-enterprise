@@ -10,7 +10,10 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/trend-scout-enterprise-backend
-  PIP_INDEX_URL: https://mirrors.cloud.tencent.com/pypi/simple/
+  # GitHub runners are outside China; pypi.org is the nearest fast index.
+  # The Tencent mirror stays as extra-index-url fallback in pip.conf (test job)
+  # and as a build-arg option for the Docker build.
+  PIP_INDEX_URL: https://pypi.org/simple/
   PIP_TRUSTED_HOST: mirrors.cloud.tencent.com
 
 jobs:
