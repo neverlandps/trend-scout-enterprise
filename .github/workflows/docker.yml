@@ -46,17 +46,16 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: 'pip'
 
       - name: Configure pip to use Tencent mirror
         run: |
           mkdir -p ~/.config/pip
-          printf '[global]\nindex-url = https://mirrors.cloud.tencent.com/pypi/simple/\ntrusted-host = mirrors.cloud.tencent.com\n' > ~/.config/pip/pip.conf
+          printf '[global]\nindex-url = https://mirrors.cloud.tencent.com/pypi/simple/\nextra-index-url = https://pypi.org/simple/\ntrusted-host = mirrors.cloud.tencent.com\n' > ~/.config/pip/pip.conf
           python -m pip install --upgrade pip
 
       - name: Install dependencies
         run: |
-          pip install --retries 10 --timeout 120 -e ".[dev]"
+          pip install --no-cache-dir --retries 10 --timeout 120 -e ".[dev]"
 
       - name: Run backend tests
         run: python -m pytest tests/ -v
