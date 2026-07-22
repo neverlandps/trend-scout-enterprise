@@ -63,7 +63,10 @@ def _is_redis_available(host: str = "127.0.0.1", port: int = 6379, timeout: floa
 
 
 def run_smoke_test():
-    engine = create_engine(settings.database_url, connect_args={"check_same_thread": False})
+    connect_args = {}
+    if settings.database_url.startswith("sqlite"):
+        connect_args["check_same_thread"] = False
+    engine = create_engine(settings.database_url, connect_args=connect_args)
     Session = sessionmaker(bind=engine)
     db = Session()
 
