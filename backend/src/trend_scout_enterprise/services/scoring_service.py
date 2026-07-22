@@ -4,7 +4,9 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.models.models import RawItem, ScoringProfile
+from trend_scout_enterprise.models.review_assignment import ReviewAssignment
 from trend_scout_enterprise.schemas.schemas import ScoringDimension
 from trend_scout_enterprise.services.llm_service import LlmService
 
@@ -95,6 +97,58 @@ def calculate_composite_score(
     return total / weight_sum
 
 
+async def score_text_dimensions(
+    text: str,
+    dimensions: list[str],
+    llm_service: LlmService,
+) -> dict[str, float]:
+    """Score text across dimensions via the LLM without touching the database.
+
+    This is the coroutine-safe part of LLM scoring: it performs no SQLAlchemy
+    session work and can therefore run concurrently under ``asyncio.gather``.
+
+    Args:
+        text: Text content to score.
+        dimensions: List of enabled dimension names.
+        llm_service: Initialized LlmService client.
+
+    Returns:
+        Mapping of dimension name to score.
+    """
+    return await llm_service.score_dimensions(text, dimensions)
+
+
+def apply_llm_scores(
+    db: Session,
+    item: RawItem,
+    dimensions: list[ScoringDimension],
+    scores: dict[str, float],
+) -> RawItem:
+    """Apply LLM dimension scores to an item, route review, and persist.
+
+    This is the database-writing part of LLM scoring and must be called from
+    a single thread/coroutine at a time per session.
+
+    Args:
+        db: SQLAlchemy session.
+        item: RawItem to update.
+        dimensions: Active scoring dimensions used for the composite score.
+        scores: Dimension scores returned by the LLM.
+
+    Returns:
+        The updated RawItem with scores persisted.
+    """
+    for name, score in scores.items():
+        field = DIMENSION_FIELDS.get(name)
+        if field:
+            setattr(item, field, score)
+    item.overall_score = calculate_composite_score(item, dimensions)
+    _apply_review_routing(db, item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
 async def score_item_with_llm(
     db: Session,
     item: RawItem,
@@ -114,12 +168,36 @@ async def score_item_with_llm(
     dimensions = get_active_dimensions(db, workspace_id=workspace_id)
     dim_names = [d.name for d in dimensions if d.enabled]
     text = f"{item.title or ''}\n{item.summary or ''}"
-    scores = await llm_service.score_dimensions(text, dim_names)
-    for name, score in scores.items():
-        field = DIMENSION_FIELDS.get(name)
-        if field:
-            setattr(item, field, score)
-    item.overall_score = calculate_composite_score(item, dimensions)
-    db.commit()
-    db.refresh(item)
-    return item
+    scores = await score_text_dimensions(text, dim_names, llm_service)
+    return apply_llm_scores(db, item, dimensions, scores)
+
+
+def _apply_review_routing(db: Session, item: RawItem) -> None:
+    """Route a scored item through the human review workflow when enabled.
+
+    When review mode is disabled the item keeps its default ``auto``
+    review_status, preserving the legacy behavior. When enabled, items
+    at or above the auto-approve threshold are approved automatically;
+    anything below it is queued for human review and assigned to the
+    reviewer configured for the item's source category, if any.
+    """
+    if not settings.review_mode_enabled:
+        return
+    score = item.overall_score if item.overall_score is not None else 0.0
+    if score >= settings.auto_approve_threshold:
+        item.review_status = "approved"
+        return
+    item.review_status = "pending_review"
+    source = item.source
+    category = source.category if source is not None else None
+    if category:
+        assignment = (
+            db.query(ReviewAssignment)
+            .filter(
+                ReviewAssignment.workspace_id == item.workspace_id,
+                ReviewAssignment.category == category,
+            )
+            .first()
+        )
+        if assignment:
+            item.assigned_reviewer_id = assignment.reviewer_id

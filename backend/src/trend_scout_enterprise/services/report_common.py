@@ -24,9 +24,16 @@ def load_report_items(db: Session, owner_id: str, item_ids: list[str], filters: 
         .all()
     )
 
+    source_ids = {item.source_id for item in items if item.source_id}
+    sources = (
+        {s.id: s for s in db.query(Source).filter(Source.id.in_(source_ids)).all()}
+        if source_ids
+        else {}
+    )
+
     enriched = []
     for item in items:
-        source = db.query(Source).filter(Source.id == item.source_id).first()
+        source = sources.get(item.source_id)
         enriched.append(
             {
                 "id": item.id,

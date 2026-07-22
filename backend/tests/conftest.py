@@ -1,5 +1,12 @@
+import base64
 import os
 import tempfile
+
+os.environ.setdefault("TESTING", "1")
+os.environ.setdefault("SECRET_KEY", "test-only-secret-key-not-for-production")
+os.environ.setdefault(
+    "ENCRYPTION_SALT", base64.urlsafe_b64encode(b"test-salt-123456").decode()
+)
 
 import pytest
 from sqlalchemy import create_engine

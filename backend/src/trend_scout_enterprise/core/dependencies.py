@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.core.database import get_db
-from trend_scout_enterprise.core.security import hash_api_key
+from trend_scout_enterprise.core.security import lookup_api_key_by_plaintext
 from trend_scout_enterprise.models.embed_token import EmbedToken
 from trend_scout_enterprise.models.models import ApiKey, Workspace
 from trend_scout_enterprise.services import workspace_service
@@ -22,10 +22,7 @@ async def get_current_api_key(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing API key",
         )
-    key_hash = hash_api_key(x_api_key)
-    api_key = db.query(ApiKey).filter(
-        ApiKey.key_hash == key_hash, ApiKey.is_active == True
-    ).first()
+    api_key = lookup_api_key_by_plaintext(db, x_api_key)
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -48,10 +45,7 @@ async def get_current_workspace(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing API key",
         )
-    key_hash = hash_api_key(x_api_key)
-    api_key = db.query(ApiKey).filter(
-        ApiKey.key_hash == key_hash, ApiKey.is_active == True
-    ).first()
+    api_key = lookup_api_key_by_plaintext(db, x_api_key)
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -61,7 +55,6 @@ async def get_current_workspace(
     db.commit()
     db.refresh(api_key)
     return workspace_service.resolve_workspace(db, api_key, x_workspace_id)
-
 
 async def get_current_workspace_unified(
     x_workspace_id: str | None = Header(None, alias=settings.workspace_id_header),

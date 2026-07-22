@@ -48,6 +48,7 @@ def aggregate_trends(
         end_date=request.end_date,
         granularity=request.granularity,
         top_evidence_count=request.top_evidence_count,
+        only_approved=request.only_approved,
     )
 
 

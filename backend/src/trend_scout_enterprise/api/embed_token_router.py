@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from trend_scout_enterprise.core.audit import record_audit
 from trend_scout_enterprise.core.database import get_db
 from trend_scout_enterprise.core.dependencies import get_current_api_key, get_current_workspace
 from trend_scout_enterprise.models.models import ApiKey, Workspace
@@ -36,6 +37,16 @@ def create_embed_token(
         name=payload.name,
         ttl_days=payload.ttl_days,
     )
+    record_audit(
+        db,
+        actor_id=api_key.id,
+        actor_type="api_key",
+        action="embed_token.create",
+        workspace_id=token.workspace_id,
+        resource_type="embed_token",
+        resource_id=token.id,
+        detail={"name": token.name, "ttl_days": payload.ttl_days},
+    )
     return EmbedTokenWithPlaintext(token=plaintext, embed_token=EmbedTokenOut.model_validate(token))
 
 
@@ -62,6 +73,15 @@ def revoke_embed_token(
 ) -> EmbedTokenOut:
     """Revoke an embed token (admin only)."""
     token = embed_token_service.revoke_embed_token(db, api_key, workspace_id, token_id)
+    record_audit(
+        db,
+        actor_id=api_key.id,
+        actor_type="api_key",
+        action="embed_token.revoke",
+        workspace_id=token.workspace_id,
+        resource_type="embed_token",
+        resource_id=token.id,
+    )
     return EmbedTokenOut.model_validate(token)
 
 
@@ -85,6 +105,16 @@ def rotate_embed_token(
         token_id,
         name=payload.name,
         ttl_days=payload.ttl_days,
+    )
+    record_audit(
+        db,
+        actor_id=api_key.id,
+        actor_type="api_key",
+        action="embed_token.rotate",
+        workspace_id=token.workspace_id,
+        resource_type="embed_token",
+        resource_id=token.id,
+        detail={"rotated_from": token_id},
     )
     return EmbedTokenWithPlaintext(token=plaintext, embed_token=EmbedTokenOut.model_validate(token))
 

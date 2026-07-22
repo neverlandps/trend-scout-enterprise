@@ -149,6 +149,65 @@ def test_aggregate_trends_by_topic_filter(
     assert all(p.topic_key == "llm" for p in points)
 
 
+def test_aggregate_trends_only_approved_excludes_rejected(
+    test_db: Session, sample_workspace: Workspace, sample_source: Source
+):
+    dt = datetime.utcnow()
+    for i, status in enumerate(["approved", "rejected", "pending_review"]):
+        item = RawItem(
+            id=f"review-item-{i}",
+            workspace_id=sample_workspace.id,
+            source_id=sample_source.id,
+            url=f"https://example.com/review-{i}",
+            title=f"Review item {i}",
+            collected_at=dt,
+            overall_score=0.8,
+            review_status=status,
+            tags=["llm"],
+        )
+        test_db.add(item)
+    test_db.commit()
+
+    points = svc.aggregate_trends_for_workspace(
+        db=test_db,
+        workspace_id=sample_workspace.id,
+        granularity="day",
+        only_approved=True,
+    )
+    point = next(p for p in points if p.topic_key == "llm")
+    assert point.item_count == 1
+    evidence = svc.get_evidence_for_point(db=test_db, trend_point_id=point.id)
+    assert {ev.raw_item_id for ev in evidence} == {"review-item-0"}
+
+
+def test_aggregate_trends_default_includes_all_review_statuses(
+    test_db: Session, sample_workspace: Workspace, sample_source: Source
+):
+    dt = datetime.utcnow()
+    for i, status in enumerate(["approved", "rejected", "pending_review"]):
+        item = RawItem(
+            id=f"default-item-{i}",
+            workspace_id=sample_workspace.id,
+            source_id=sample_source.id,
+            url=f"https://example.com/default-{i}",
+            title=f"Default item {i}",
+            collected_at=dt,
+            overall_score=0.8,
+            review_status=status,
+            tags=["llm"],
+        )
+        test_db.add(item)
+    test_db.commit()
+
+    points = svc.aggregate_trends_for_workspace(
+        db=test_db,
+        workspace_id=sample_workspace.id,
+        granularity="day",
+    )
+    point = next(p for p in points if p.topic_key == "llm")
+    assert point.item_count == 3
+
+
 def test_date_bucket_week(
     test_db: Session, sample_workspace: Workspace, sample_source: Source
 ):

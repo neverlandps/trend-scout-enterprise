@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 
 from trend_scout_enterprise.scanners.base import BaseScanner, RawSignal
+from trend_scout_enterprise.scanners.url_validator import validate_outbound_url
 
 
 class WebSearchScanner(BaseScanner):
@@ -36,6 +37,7 @@ class WebSearchScanner(BaseScanner):
         max_results = self.config.get("max_results", 10)
         if not url:
             return []
+        validate_outbound_url(url)
         headers: dict[str, str] = {}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"

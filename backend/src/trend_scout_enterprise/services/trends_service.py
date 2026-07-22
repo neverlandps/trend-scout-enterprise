@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta
 from typing import Literal
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from trend_scout_enterprise.models.models import RawItem, Source
 from trend_scout_enterprise.models.trends import TopicTrendPoint, TrendEvidence
@@ -37,6 +37,7 @@ def aggregate_trends_for_workspace(
     end_date: date | None = None,
     granularity: GranularityStr = "week",
     top_evidence_count: int = 5,
+    only_approved: bool = False,
 ) -> list[TopicTrendPoint]:
     """Aggregate RawItem scores into TopicTrendPoint buckets.
 
@@ -52,12 +53,16 @@ def aggregate_trends_for_workspace(
         end_date: Optional end date filter.
         granularity: Time bucket granularity.
         top_evidence_count: Number of top contributing items to retain per bucket.
+        only_approved: If True, only include items whose review_status is
+            "approved" or "auto" (auto is the default when review mode is off).
 
     Returns:
         List of generated/updated TopicTrendPoint objects.
     """
     query = db.query(RawItem).join(Source, RawItem.source_id == Source.id)
     filters = []
+    if only_approved:
+        filters.append(RawItem.review_status.in_(["approved", "auto"]))
     if workspace_id is not None:
         filters.append(RawItem.workspace_id == workspace_id)
     if category is not None:
@@ -195,6 +200,7 @@ def get_evidence_for_point(
     """Return traceable evidence for a trend point."""
     return (
         db.query(TrendEvidence)
+        .options(joinedload(TrendEvidence.raw_item), joinedload(TrendEvidence.source))
         .filter(TrendEvidence.trend_point_id == trend_point_id)
         .order_by(TrendEvidence.rank.asc())
         .all()

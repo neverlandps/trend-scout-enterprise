@@ -22,7 +22,10 @@ from sqlalchemy.orm import sessionmaker
 
 from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.core.security import hash_api_key, get_key_prefix
-from trend_scout_enterprise.models.models import ApiKey, Source
+from trend_scout_enterprise.models.models import ApiKey, RawItem, Source
+from trend_scout_enterprise.services.workspace_service import (
+    get_or_create_default_team_workspace,
+)
 
 BASE_URL = os.environ.get("SMOKE_BASE_URL", "http://127.0.0.1:8000/api/v1")
 PLAINTEXT_KEY = f"tse_smoke_{uuid.uuid4().hex}"
@@ -45,8 +48,41 @@ def seed_api_key(db):
 
 
 def cleanup(db, key_id):
-    db.query(ApiKey).filter(ApiKey.id == key_id).delete()
-    db.commit()
+    """Remove smoke-created rows in FK-safe order (PostgreSQL enforces FKs)."""
+    from trend_scout_enterprise.models.models import (
+        Report,
+        ScanRun,
+        Source,
+        TeamMembership,
+    )
+
+    try:
+        source_ids = [
+            row[0] for row in db.query(Source.id).filter(Source.owner_id == key_id)
+        ]
+        if source_ids:
+            db.query(ScanRun).filter(ScanRun.source_id.in_(source_ids)).delete(
+                synchronize_session=False
+            )
+            # signal_reviews rows cascade via ON DELETE CASCADE on raw_item_id
+            db.query(RawItem).filter(RawItem.source_id.in_(source_ids)).delete(
+                synchronize_session=False
+            )
+            db.query(Source).filter(Source.owner_id == key_id).delete(
+                synchronize_session=False
+            )
+        db.query(Report).filter(Report.owner_id == key_id).delete(
+            synchronize_session=False
+        )
+        # TeamMembership references api_keys; the server auto-creates it on first use
+        db.query(TeamMembership).filter(TeamMembership.api_key_id == key_id).delete(
+            synchronize_session=False
+        )
+        db.query(ApiKey).filter(ApiKey.id == key_id).delete(synchronize_session=False)
+        db.commit()
+    except Exception:
+        # Cleanup is best-effort; smoke databases are disposable
+        db.rollback()
 
 
 def _is_redis_available(host: str = "127.0.0.1", port: int = 6379, timeout: float = 1.0) -> bool:
@@ -60,13 +96,17 @@ def _is_redis_available(host: str = "127.0.0.1", port: int = 6379, timeout: floa
 
 
 def run_smoke_test():
-    engine = create_engine(settings.database_url, connect_args={"check_same_thread": False})
+    connect_args = {}
+    if settings.database_url.startswith("sqlite"):
+        connect_args["check_same_thread"] = False
+    engine = create_engine(settings.database_url, connect_args=connect_args)
     Session = sessionmaker(bind=engine)
     db = Session()
 
     key = seed_api_key(db)
     headers = {"X-API-Key": PLAINTEXT_KEY}
     results = []
+    seeded_item_id = None
 
     try:
         # 1. Health
@@ -114,6 +154,64 @@ def run_smoke_test():
         )
         results.append(("GET /trends/series", r.status_code, r.json() if r.ok else r.text[:200]))
 
+        # 6.5 Signal review flow (direct DB seed; review endpoints do not
+        # depend on review_mode_enabled or Redis, so no SKIP needed here)
+        workspace = get_or_create_default_team_workspace(db, key)
+        if source_id:
+            item = RawItem(
+                id=uuid.uuid4().hex,
+                workspace_id=workspace.id,
+                source_id=source_id,
+                url=f"https://example.com/smoke-{uuid.uuid4().hex}",
+                title="Smoke review item",
+                collected_at=datetime.utcnow(),
+                overall_score=0.5,
+                review_status="pending_review",
+                tags=["smoke-test"],
+            )
+            db.add(item)
+            db.commit()
+            seeded_item_id = item.id
+
+            # 6.5a Verify it appears in the review queue
+            r = requests.get(f"{BASE_URL}/signals/review-queue", headers=headers, timeout=10)
+            in_queue = r.ok and any(s.get("id") == seeded_item_id for s in r.json().get("signals", []))
+            results.append((
+                "GET /signals/review-queue",
+                r.status_code if in_queue else 500,
+                f"seeded item in queue: {in_queue}" if r.ok else r.text[:200],
+            ))
+
+            # 6.5b Approve the signal
+            r = requests.post(
+                f"{BASE_URL}/signals/{seeded_item_id}/review",
+                json={"action": "approve", "notes": "smoke approve"},
+                headers=headers,
+                timeout=10,
+            )
+            approved = r.ok and r.json().get("status") == "approved"
+            results.append((
+                "POST /signals/{id}/review (approve)",
+                r.status_code if approved else 500,
+                r.json() if r.ok else r.text[:200],
+            ))
+
+            # 6.5c Verify review_status filter on GET /signals
+            r = requests.get(
+                f"{BASE_URL}/signals",
+                params={"review_status": "approved"},
+                headers=headers,
+                timeout=10,
+            )
+            found = r.ok and any(s.get("id") == seeded_item_id for s in r.json().get("signals", []))
+            results.append((
+                "GET /signals?review_status=approved",
+                r.status_code if found else 500,
+                f"approved item listed: {found}" if r.ok else r.text[:200],
+            ))
+        else:
+            results.append(("Signal review flow", "SKIPPED (no source created)", "source_id unavailable"))
+
         # 7. Create report (Celery/Redis required; skip if broker unavailable)
         report_payload = {
             "title": "Smoke Report",
@@ -133,6 +231,9 @@ def run_smoke_test():
                 results.append(("POST /reports", "SKIPPED (Celery/Redis unavailable)", "Request timed out waiting for broker"))
 
     finally:
+        if seeded_item_id:
+            db.query(RawItem).filter(RawItem.id == seeded_item_id).delete()
+            db.commit()
         cleanup(db, key.id)
         db.close()
 

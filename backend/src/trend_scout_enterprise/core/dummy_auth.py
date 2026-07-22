@@ -3,9 +3,12 @@
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
+import structlog
 from jose import jwt
 
 from trend_scout_enterprise.core.config import settings
+
+logger = structlog.get_logger(__name__)
 
 DUMMY_USER = {
     "id": "dummy-user-001",
@@ -43,5 +46,14 @@ def create_jwt_for_user(user: dict) -> str:
 
 
 def decode_jwt(token: str) -> dict:
-    """Decode and validate internal JWT."""
-    return jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
+    """Decode and validate internal JWT.
+
+    Raises a generic ValueError on failure; the underlying jose exception is
+    logged but never exposed to callers so internal details are not leaked
+    into HTTP responses.
+    """
+    try:
+        return jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
+    except Exception as exc:
+        logger.warning("dummy_auth_jwt_decode_failed", error=str(exc))
+        raise ValueError("Invalid JWT") from exc

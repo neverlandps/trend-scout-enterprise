@@ -1,8 +1,11 @@
 """Signal API endpoints for listing and analyzing raw items."""
 
+from uuid import uuid4
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from trend_scout_enterprise.core.audit import record_audit
 from trend_scout_enterprise.core.database import get_db
 from trend_scout_enterprise.core.dependencies import (
     get_current_api_key,
@@ -10,9 +13,16 @@ from trend_scout_enterprise.core.dependencies import (
     get_current_workspace_unified,
 )
 from trend_scout_enterprise.core.encryption import decrypt_value
-from trend_scout_enterprise.models.models import ApiKey, LlmProvider, RawItem, Workspace
+from trend_scout_enterprise.models.models import ApiKey, LlmProvider, RawItem, Source, Workspace
+from trend_scout_enterprise.models.signal_review import SignalReview
 from trend_scout_enterprise.schemas import (
+    BulkReviewFailure,
+    BulkReviewRequest,
+    BulkReviewResult,
+    FeedbackRequest,
     RawItemOut,
+    ReviewActionRequest,
+    ReviewOut,
     SignalAnalyzeOut,
     SignalAnalyzeRequest,
     SignalListOut,
@@ -50,6 +60,7 @@ def _get_default_llm_service(db: Session) -> LlmService:
 def list_signals(
     source_id: str | None = None,
     min_score: float | None = None,
+    review_status: str | None = None,
     limit: int = 100,
     offset: int = 0,
     db: Session = Depends(get_db),
@@ -61,6 +72,8 @@ def list_signals(
         query = query.filter(RawItem.source_id == source_id)
     if min_score is not None:
         query = query.filter(RawItem.overall_score >= min_score)
+    if review_status:
+        query = query.filter(RawItem.review_status == review_status)
     total = query.count()
     signals = (
         query.order_by(RawItem.collected_at.desc())
@@ -69,6 +82,208 @@ def list_signals(
         .all()
     )
     return SignalListOut(signals=signals, total=total)
+
+
+# ---------------------------------------------------------------------------
+# Human-in-the-loop review workflow
+# ---------------------------------------------------------------------------
+
+_ACTION_TO_STATUS = {
+    "approve": "approved",
+    "reject": "rejected",
+    "flag": "flagged",
+    "override": "approved",
+}
+
+
+def _get_workspace_signal(db: Session, signal_id: str, workspace_id: str) -> RawItem:
+    """Fetch a signal scoped to the workspace or raise 404."""
+    signal = (
+        db.query(RawItem)
+        .filter(RawItem.id == signal_id, RawItem.workspace_id == workspace_id)
+        .first()
+    )
+    if not signal:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Signal not found")
+    return signal
+
+
+def _apply_review_action(
+    db: Session,
+    item: RawItem,
+    action: str,
+    reviewer_id: str,
+    human_score: float | None = None,
+    notes: str | None = None,
+) -> SignalReview:
+    """Apply a review action to an item and record a SignalReview entry."""
+    if action == "override" and human_score is None:
+        raise ValueError("human_score is required for override")
+    item.review_status = _ACTION_TO_STATUS[action]
+    if action == "override":
+        item.human_score = human_score
+    review = SignalReview(
+        id=uuid4().hex,
+        raw_item_id=item.id,
+        workspace_id=item.workspace_id,
+        reviewer_id=reviewer_id,
+        status=_ACTION_TO_STATUS[action],
+        human_score=human_score,
+        notes=notes,
+    )
+    db.add(review)
+    return review
+
+
+@router.get("/signals/review-queue", response_model=SignalListOut)
+def get_review_queue(
+    source_id: str | None = None,
+    category: str | None = None,
+    assigned_to_me: bool = False,
+    limit: int = 100,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
+) -> SignalListOut:
+    """List signals pending human review in the current workspace."""
+    query = db.query(RawItem).filter(
+        RawItem.workspace_id == workspace.id,
+        RawItem.review_status == "pending_review",
+    )
+    if source_id:
+        query = query.filter(RawItem.source_id == source_id)
+    if category:
+        query = query.join(Source, RawItem.source_id == Source.id).filter(
+            Source.category == category
+        )
+    if assigned_to_me:
+        query = query.filter(RawItem.assigned_reviewer_id == api_key.id)
+    total = query.count()
+    signals = (
+        query.order_by(RawItem.collected_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    return SignalListOut(signals=signals, total=total)
+
+
+@router.post("/signals/bulk-review", response_model=BulkReviewResult)
+def bulk_review_signals(
+    request: BulkReviewRequest,
+    db: Session = Depends(get_db),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
+) -> BulkReviewResult:
+    """Apply a review action to multiple signals in a single transaction."""
+    succeeded: list[str] = []
+    failed: list[BulkReviewFailure] = []
+    for item_id in request.item_ids:
+        item = (
+            db.query(RawItem)
+            .filter(RawItem.id == item_id, RawItem.workspace_id == workspace.id)
+            .first()
+        )
+        if not item:
+            failed.append(BulkReviewFailure(id=item_id, error="Signal not found"))
+            continue
+        try:
+            _apply_review_action(
+                db, item, request.action, api_key.id, notes=request.notes
+            )
+            succeeded.append(item_id)
+        except ValueError as exc:
+            failed.append(BulkReviewFailure(id=item_id, error=str(exc)))
+    db.commit()
+    record_audit(
+        db,
+        actor_id=api_key.id,
+        actor_type="api_key",
+        action="signal.bulk_review",
+        workspace_id=workspace.id,
+        resource_type="signal",
+        detail={
+            "action": request.action,
+            "total": len(request.item_ids),
+            "succeeded": len(succeeded),
+        },
+    )
+    return BulkReviewResult(succeeded=succeeded, failed=failed)
+
+
+@router.post("/signals/{signal_id}/review", response_model=ReviewOut)
+def review_signal(
+    signal_id: str,
+    request: ReviewActionRequest,
+    db: Session = Depends(get_db),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
+) -> SignalReview:
+    """Apply a human review action to a signal in the current workspace."""
+    item = _get_workspace_signal(db, signal_id, workspace.id)
+    try:
+        review = _apply_review_action(
+            db, item, request.action, api_key.id,
+            human_score=request.human_score, notes=request.notes,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
+    db.commit()
+    db.refresh(review)
+    record_audit(
+        db,
+        actor_id=api_key.id,
+        actor_type="api_key",
+        action="signal.review",
+        workspace_id=workspace.id,
+        resource_type="signal",
+        resource_id=item.id,
+        detail={"action": request.action, "human_score": request.human_score},
+    )
+    return review
+
+
+@router.post("/signals/{signal_id}/feedback", response_model=ReviewOut)
+def submit_signal_feedback(
+    signal_id: str,
+    request: FeedbackRequest,
+    db: Session = Depends(get_db),
+    api_key: ApiKey = Depends(get_current_api_key),
+    workspace: Workspace = Depends(get_current_workspace),
+) -> SignalReview:
+    """Record reviewer feedback and a human score for a signal."""
+    item = _get_workspace_signal(db, signal_id, workspace.id)
+    item.human_score = request.human_score
+    review = SignalReview(
+        id=uuid4().hex,
+        raw_item_id=item.id,
+        workspace_id=item.workspace_id,
+        reviewer_id=api_key.id,
+        status="feedback",
+        human_score=request.human_score,
+        feedback_type=request.feedback_type,
+        notes=request.notes,
+    )
+    db.add(review)
+    db.commit()
+    db.refresh(review)
+    record_audit(
+        db,
+        actor_id=api_key.id,
+        actor_type="api_key",
+        action="signal.feedback",
+        workspace_id=workspace.id,
+        resource_type="signal",
+        resource_id=item.id,
+        detail={
+            "feedback_type": request.feedback_type,
+            "human_score": request.human_score,
+        },
+    )
+    return review
 
 
 @router.get("/signals/{signal_id}", response_model=RawItemOut)

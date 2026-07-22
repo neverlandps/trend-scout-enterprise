@@ -31,10 +31,17 @@ For a complete summary of the delivered MVP, architecture decisions, verificatio
 
 ## Quick Start (Local Development)
 
+The backend refuses to start outside testing without a real `SECRET_KEY`, and encryption helpers require `ENCRYPTION_SALT`. Set both before running:
+
 ```bash
 cd backend
 pip install -e ".[dev]"
-python -m pytest tests/ -v
+
+# Required outside testing (generate your own random values):
+export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
+export ENCRYPTION_SALT="$(python -c 'import secrets, base64; print(base64.urlsafe_b64encode(secrets.token_bytes(16)).decode())')"
+
+python -m pytest tests/ -v   # tests set TESTING=1 and their own keys via conftest
 python -m uvicorn trend_scout_enterprise.main:app --host 0.0.0.0 --port 8000
 ```
 
@@ -67,11 +74,18 @@ The compose stack starts Redis, the backend API, a Celery worker, and a Celery b
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| DATABASE_URL | sqlite:///data/trend_scout.db | SQLite database path |
+| DATABASE_URL | sqlite:///data/trend_scout.db | SQLite database path (PostgreSQL also supported) |
 | REDIS_URL | redis://redis:6379/0 | Redis connection |
 | CELERY_BROKER_URL | redis://redis:6379/0 | Celery broker |
 | CELERY_RESULT_BACKEND | redis://redis:6379/0 | Celery result backend |
-| SECRET_KEY | change-me-in-production | Encryption key |
+| SECRET_KEY | — (**required**) | Encryption/signing key. Startup fails outside testing if unset or left at the default placeholder |
+| ENCRYPTION_SALT | — (**required**) | Base64-encoded salt for key derivation (Fernet). Required outside testing |
+| TESTING | false | Test mode: allows default SECRET_KEY and a fixed encryption salt. Never set in production |
+| CORS_ORIGINS | http://localhost:5173 | Comma-separated CORS allowlist |
+| SSRF_ALLOW_PRIVATE | false | Allow scanners to fetch private/loopback IPs (SSRF guard bypass — dev only) |
+| REVIEW_MODE_ENABLED | false | Enable human-in-the-loop signal review workflow |
+| HUMAN_REVIEW_THRESHOLD | 0.4 | Lower bound of the human-review score band (reserved; current routing uses AUTO_APPROVE_THRESHOLD only) |
+| AUTO_APPROVE_THRESHOLD | 0.7 | When review mode is on, scores at/above this are auto-approved; lower scores go to pending_review |
 | LLM_DEFAULT_BASE_URL | https://api.openai.com/v1 | OpenAI-compatible LLM endpoint |
 | LLM_DEFAULT_MODEL | gpt-4o-mini | Default model |
 | OUTPUT_DIR | /data/outputs | Report output directory |

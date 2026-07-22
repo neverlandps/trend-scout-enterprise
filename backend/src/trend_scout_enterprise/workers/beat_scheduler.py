@@ -2,20 +2,13 @@
 
 from datetime import datetime, timezone
 
-from celery import Celery
 from croniter import croniter
 from sqlalchemy.orm import Session
 
-from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.core.database import SessionLocal
 from trend_scout_enterprise.models.schedule import ScanSchedule
+from trend_scout_enterprise.workers.celery_app import celery_app
 from trend_scout_enterprise.workers.scan_worker import run_scan
-
-celery_app = Celery(
-    "trend_scout_enterprise",
-    broker=settings.celery_broker_url,
-    backend=settings.celery_result_backend,
-)
 
 
 def _get_db() -> Session:

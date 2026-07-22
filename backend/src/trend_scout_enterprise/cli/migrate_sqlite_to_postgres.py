@@ -1,8 +1,12 @@
 import click
-from sqlalchemy import create_engine, MetaData, Table
+from sqlalchemy import MetaData, create_engine
 from sqlalchemy.orm import sessionmaker
+
+# Importing the models package registers every model on Base.metadata so
+# create_all below builds the full target schema (all 22 tables).
+import trend_scout_enterprise.models  # noqa: F401
 from trend_scout_enterprise.core.config import settings
-from trend_scout_enterprise.core.database import Base, engine as pg_engine
+from trend_scout_enterprise.core.database import Base
 
 
 @click.command()
@@ -27,10 +31,10 @@ def migrate(sqlite_path, postgres_url, dry_run):
     target_meta = MetaData()
     target_meta.reflect(bind=target_engine)
 
-    SessionSource = sessionmaker(bind=sqlite_engine)
-    SessionTarget = sessionmaker(bind=target_engine)
-    source_session = SessionSource()
-    target_session = SessionTarget()
+    session_source = sessionmaker(bind=sqlite_engine)
+    session_target = sessionmaker(bind=target_engine)
+    source_session = session_source()
+    target_session = session_target()
 
     try:
         for table_name in source_meta.tables:
@@ -42,13 +46,15 @@ def migrate(sqlite_path, postgres_url, dry_run):
             click.echo(f"Table {table_name}: {len(rows)} rows")
             if not dry_run and rows:
                 target_table = target_meta.tables[table_name]
+                # Rows are copied verbatim; bcrypt password/API-key hashes are
+                # portable across databases and need no transformation.
                 target_session.execute(target_table.insert(), [dict(row) for row in rows])
         if not dry_run:
             target_session.commit()
             click.echo("Migration committed")
     except Exception as e:
         target_session.rollback()
-        raise click.ClickException(str(e))
+        raise click.ClickException(str(e)) from e
     finally:
         source_session.close()
         target_session.close()

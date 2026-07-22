@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from trend_scout_enterprise.core.audit import record_audit
 from trend_scout_enterprise.core.database import get_db
 from trend_scout_enterprise.core.dependencies import get_current_api_key, get_current_workspace
 from trend_scout_enterprise.models.models import ApiKey, LlmProvider, Workspace
@@ -63,6 +64,16 @@ def create_fallback_provider(
     """Create a new fallback LLM provider for the workspace."""
     registry = LlmFallbackRegistry(db)
     provider = registry.create_provider(payload, workspace_id=workspace.id)
+    record_audit(
+        db,
+        actor_id=api_key.id,
+        actor_type="api_key",
+        action="llm_fallback.provider.create",
+        workspace_id=workspace.id,
+        resource_type="llm_fallback_provider",
+        resource_id=provider.id,
+        detail={"name": provider.name},
+    )
     return _provider_to_out(provider)
 
 
@@ -101,6 +112,15 @@ def update_fallback_provider(
             detail="Fallback provider not found",
         )
     provider = registry.update_provider(provider, payload)
+    record_audit(
+        db,
+        actor_id=api_key.id,
+        actor_type="api_key",
+        action="llm_fallback.provider.update",
+        workspace_id=workspace.id,
+        resource_type="llm_fallback_provider",
+        resource_id=provider.id,
+    )
     return _provider_to_out(provider)
 
 
@@ -120,6 +140,15 @@ def delete_fallback_provider(
             detail="Fallback provider not found",
         )
     registry.delete_provider(provider)
+    record_audit(
+        db,
+        actor_id=api_key.id,
+        actor_type="api_key",
+        action="llm_fallback.provider.delete",
+        workspace_id=workspace.id,
+        resource_type="llm_fallback_provider",
+        resource_id=provider_id,
+    )
 
 
 @router.post("/settings/llm/fallbacks/{provider_id}/health", response_model=LlmFallbackHealthOut)

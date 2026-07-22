@@ -22,7 +22,7 @@ _SUGGESTED_FIXES = {
 }
 
 
-def _suggested_fix(source_type: str, error: str) -> str:
+def suggested_fix_for(source_type: str, error: str) -> str:
     """Return a human-readable fix suggestion for a failed source type."""
     base = _SUGGESTED_FIXES.get(source_type, "Review the source configuration and network connectivity.")
     return f"{base} Error: {error}"
@@ -135,7 +135,7 @@ def update_source_health(
     db_source.health_status = health_status
     if last_failure_reason is not None:
         db_source.last_failure_reason = last_failure_reason
-        db_source.suggested_fix = _suggested_fix(source_type, last_failure_reason)
+        db_source.suggested_fix = suggested_fix_for(source_type, last_failure_reason)
     db.commit()
     db.refresh(db_source)
     return db_source

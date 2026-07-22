@@ -28,12 +28,24 @@ def _derive_key(password: str, salt: bytes) -> bytes:
     return key
 
 
+_TEST_SALT = b"test-salt-123456"
+
+
 def _get_salt() -> bytes:
-    """Return the encryption salt from env or fall back to secret key prefix."""
+    """Return the encryption salt from the ENCRYPTION_SALT env var.
+
+    Raises RuntimeError outside testing mode when the salt is not configured;
+    in testing mode a fixed salt is used so tests are deterministic.
+    """
     salt_b64 = os.environ.get(_SALT_ENV_VAR, "")
     if salt_b64:
         return base64.urlsafe_b64decode(salt_b64)
-    return settings.secret_key.encode()[:16]
+    if not settings.testing:
+        raise RuntimeError(
+            f"{_SALT_ENV_VAR} environment variable is not set. "
+            "Set it to a base64-encoded random salt (or set TESTING=1 for test runs)."
+        )
+    return _TEST_SALT
 
 
 def _get_fernet() -> Fernet:

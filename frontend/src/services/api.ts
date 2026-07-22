@@ -132,6 +132,10 @@ export interface Signal {
   investment_velocity: number | null
   technical_feasibility: number | null
   strategic_fit: number | null
+  review_status?: string
+  human_score?: number | null
+  assigned_reviewer_id?: string | null
+  metadata_json?: Record<string, unknown>
 }
 
 export interface Report {
@@ -292,12 +296,87 @@ export async function fetchSignals(
   sourceId?: string,
   minScore?: number,
   limit = 100,
-  offset = 0
+  offset = 0,
+  reviewStatus?: string
 ): Promise<{ signals: Signal[]; total: number }> {
   const params: Record<string, unknown> = { limit, offset }
   if (sourceId) params.source_id = sourceId
   if (minScore !== undefined) params.min_score = minScore
+  if (reviewStatus) params.review_status = reviewStatus
   const res = await api.get('/signals', { params })
+  return res.data
+}
+
+export type ReviewAction = 'approve' | 'reject' | 'flag' | 'override'
+export type BulkReviewAction = 'approve' | 'reject' | 'flag'
+export type FeedbackType = 'score_too_low' | 'score_too_high' | 'irrelevant'
+
+export interface ReviewActionRequest {
+  action: ReviewAction
+  human_score?: number
+  notes?: string
+}
+
+export interface BulkReviewRequest {
+  item_ids: string[]
+  action: BulkReviewAction
+  notes?: string
+}
+
+export interface BulkReviewFailure {
+  id: string
+  error: string
+}
+
+export interface BulkReviewResult {
+  succeeded: string[]
+  failed: BulkReviewFailure[]
+}
+
+export interface FeedbackRequest {
+  human_score: number
+  feedback_type: FeedbackType
+  notes?: string
+}
+
+export interface ReviewRecord {
+  id: string
+  raw_item_id: string
+  workspace_id: string
+  reviewer_id: string | null
+  status: string
+  human_score: number | null
+  notes: string | null
+  created_at: string | null
+}
+
+export interface ReviewQueueParams {
+  source_id?: string
+  category?: string
+  assigned_to_me?: boolean
+  limit?: number
+  offset?: number
+}
+
+export async function fetchReviewQueue(
+  params: ReviewQueueParams = {}
+): Promise<{ signals: Signal[]; total: number }> {
+  const res = await api.get('/signals/review-queue', { params })
+  return res.data
+}
+
+export async function reviewSignal(id: string, payload: ReviewActionRequest): Promise<ReviewRecord> {
+  const res = await api.post(`/signals/${id}/review`, payload)
+  return res.data
+}
+
+export async function bulkReviewSignals(payload: BulkReviewRequest): Promise<BulkReviewResult> {
+  const res = await api.post('/signals/bulk-review', payload)
+  return res.data
+}
+
+export async function submitSignalFeedback(id: string, payload: FeedbackRequest): Promise<ReviewRecord> {
+  const res = await api.post(`/signals/${id}/feedback`, payload)
   return res.data
 }
 
