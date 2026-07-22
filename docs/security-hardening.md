@@ -59,3 +59,17 @@ Unhandled exceptions return a generic error body to clients instead of leaking t
 ## Signal Review Workflow
 
 See [`signal-review-workflow.md`](signal-review-workflow.md) for the human-in-the-loop review state machine, thresholds, and API.
+
+## Security Response Headers
+
+A Starlette middleware (`backend/src/trend_scout_enterprise/core/security_headers.py`, registered in `main.py`) adds hardening headers to every response: `X-Content-Type-Options: nosniff`, `X-Frame-Options`, `Referrer-Policy: strict-origin-when-cross-origin`, and a `Content-Security-Policy`. API/JSON responses get the strict policy `default-src 'none'; frame-ancestors 'none'`; report HTML downloads (`/outputs/` paths or `text/html` responses) get a relaxed `default-src 'self' 'unsafe-inline'` so they still render. HSTS is emitted only when explicitly enabled, so local HTTP development is unaffected.
+
+- Config: `FRAME_OPTIONS` (default `DENY`; set `SAMEORIGIN` if a page must be framed by the same origin), `HSTS_ENABLED` (default `false`; enable behind HTTPS).
+
+## JWT RS256 Signing and Key Rotation
+
+Internal session JWTs (`backend/src/trend_scout_enterprise/core/dummy_auth.py`) previously used HS256 symmetric signing with `SECRET_KEY`. When `JWT_PRIVATE_KEY_PEM` is configured, tokens are signed with RS256 and carry a `kid` header. Verification reads the token header first: RS256 tokens are checked against the public key matching `kid` in `JWT_PUBLIC_KEYS_PEM` (a JSON dict of kid -> public key PEM, so multiple public keys can coexist during rotation); HS256 tokens are still verified with `SECRET_KEY`, keeping a backward-compatible migration window. Unknown kids and unsupported algorithms are rejected, and failures surface only as a generic `Invalid JWT` error.
+
+Rotation flow: generate a new key pair with `scripts/generate_jwt_keys.py --kid <new-kid>`, set `JWT_PRIVATE_KEY_PEM`/`JWT_KEY_ID` to the new private key and kid, add the new public key to `JWT_PUBLIC_KEYS_PEM` while keeping the old entry, then remove the old public key after `JWT_EXPIRATION_MINUTES` has elapsed.
+
+- Config: `JWT_PRIVATE_KEY_PEM` (private key PEM, from the secret manager; empty = HS256 fallback), `JWT_PUBLIC_KEYS_PEM` (JSON dict kid -> public key PEM), `JWT_KEY_ID` (default `default`).

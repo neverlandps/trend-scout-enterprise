@@ -1,0 +1,142 @@
+name: Security Scans
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, Monday 00:00 UTC
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+env:
+  # GitHub runners are outside China; pypi.org is the nearest fast index.
+  # The Tencent mirror stays as extra-index-url fallback in pip.conf.
+  PIP_INDEX_URL: https://pypi.org/simple/
+  PIP_TRUSTED_HOST: mirrors.cloud.tencent.com
+
+jobs:
+  # SAST: static analysis of the backend source with bandit.
+  # NOTE: continue-on-error is true during a 2-week observation period while
+  # the existing-code baseline settles. After the observation period, flip
+  # continue-on-error to false so new findings block merges.
+  bandit:
+    runs-on: ubuntu-latest
+    continue-on-error: true # TODO(observation period, 2 weeks): set to false
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install bandit
+        run: |
+          set -o pipefail
+          for i in 1 2 3 4 5; do
+            if pip install --no-cache-dir --retries 10 --timeout 120 "bandit>=1.7" 2>&1 | tee /tmp/pip-install.log; then
+              break
+            fi
+            echo "::warning::pip install attempt $i failed (network), retrying in 15s..."
+            sleep 15
+            if [ "$i" = "5" ]; then exit 1; fi
+          done
+
+      - name: Run bandit
+        run: |
+          set -o pipefail
+          bandit -r backend/src/ -ll -f txt 2>&1 | tee /tmp/bandit.log
+
+      - name: Append bandit report to step summary
+        if: always()
+        run: |
+          echo '## Bandit SAST report' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/bandit.log >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+  # Dependency CVE scan of the backend environment with pip-audit.
+  # NOTE: continue-on-error is true during a 2-week observation period; flip
+  # to false afterwards so new CVEs block merges.
+  pip-audit:
+    runs-on: ubuntu-latest
+    continue-on-error: true # TODO(observation period, 2 weeks): set to false
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Configure pip to use Tencent mirror
+        run: |
+          mkdir -p ~/.config/pip
+          printf '[global]\nindex-url = https://pypi.org/simple/\nextra-index-url = https://mirrors.cloud.tencent.com/pypi/simple/\ntrusted-host = mirrors.cloud.tencent.com\n' > ~/.config/pip/pip.conf
+          python -m pip install --upgrade pip
+
+      - name: Install dependencies and pip-audit
+        run: |
+          set -o pipefail
+          for i in 1 2 3 4 5; do
+            if pip install --no-cache-dir --retries 10 --timeout 120 -e ".[dev]" pip-audit 2>&1 | tee /tmp/pip-install.log; then
+              break
+            fi
+            echo "::warning::pip install attempt $i failed (network), retrying in 15s..."
+            sleep 15
+            if [ "$i" = "5" ]; then exit 1; fi
+          done
+
+      - name: Run pip-audit
+        run: |
+          set -o pipefail
+          pip-audit 2>&1 | tee /tmp/pip-audit.log
+
+      - name: Append pip-audit report to step summary
+        if: always()
+        run: |
+          echo '## pip-audit dependency report' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/pip-audit.log >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+  # Filesystem scan for vulnerabilities and misconfigurations with Trivy.
+  # NOTE: continue-on-error is true during a 2-week observation period; flip
+  # to false afterwards so new findings block merges.
+  trivy:
+    runs-on: ubuntu-latest
+    continue-on-error: true # TODO(observation period, 2 weeks): set to false
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # Equivalent to `trivy fs --security-checks vuln,config .`
+      # (`--security-checks` was renamed to `--scanners` in newer Trivy
+      # releases; trivy-action 0.28+ exposes it as the `scanners` input).
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          scanners: 'vuln,config'
+          format: 'table'
+          output: 'trivy-report.txt'
+          exit-code: '1'
+
+      - name: Append trivy report to step summary
+        if: always()
+        run: |
+          echo '## Trivy filesystem report' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat trivy-report.txt >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo '(no report produced)' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

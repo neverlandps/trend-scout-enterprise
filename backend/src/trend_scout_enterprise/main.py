@@ -25,6 +25,7 @@ from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.core.database import engine, Base, SessionLocal
 from trend_scout_enterprise.core.rate_limit import limiter
 from trend_scout_enterprise.core.security import get_or_create_default_api_key
+from trend_scout_enterprise.core.security_headers import SecurityHeadersMiddleware
 from trend_scout_enterprise.models import LlmProvider, ScoringProfile, ApiKey
 from trend_scout_enterprise.models.models import Team, TeamMembership, Workspace
 from trend_scout_enterprise.models.auth import MicrosoftAuthConfig, UserSession
@@ -86,6 +87,7 @@ app = FastAPI(
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(
     CORSMiddleware,
@@ -112,4 +114,6 @@ app.include_router(llm_fallback_router, prefix="/api/v1", tags=["llm-fallback"])
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # nosec B104: local dev entrypoint only; production serves via uvicorn
+    # CLI with an explicit host (see deployment/).
+    uvicorn.run(app, host="0.0.0.0", port=8000)  # nosec B104

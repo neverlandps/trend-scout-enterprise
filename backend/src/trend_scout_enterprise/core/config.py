@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     workspace_id_header: str = "X-Workspace-ID"
     jwt_algorithm: str = "HS256"
     jwt_expiration_minutes: int = 60
+    jwt_private_key_pem: str = ""
+    jwt_public_keys_pem: str = ""
+    jwt_key_id: str = "default"
+    frame_options: str = "DENY"
+    hsts_enabled: bool = False
     cors_origins: str = "http://localhost:5173"
     ssrf_allow_private: bool = False
     review_mode_enabled: bool = False
