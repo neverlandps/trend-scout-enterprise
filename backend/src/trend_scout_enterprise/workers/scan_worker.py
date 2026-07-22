@@ -9,12 +9,14 @@ from datetime import datetime
 import structlog
 from sqlalchemy.orm import Session
 
+from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.core.database import SessionLocal
 from trend_scout_enterprise.core.encryption import decrypt_dict
 from trend_scout_enterprise.models.models import RawItem, ScanRun, Source
 from trend_scout_enterprise.scanners import get_scanner
 from trend_scout_enterprise.services import source_service
 from trend_scout_enterprise.services.analysis_service import analyze_signals_batch
+from trend_scout_enterprise.services.embedding_service import EmbeddingService
 from trend_scout_enterprise.services.llm_service import get_default_llm_service_or_none
 from trend_scout_enterprise.services.notification_service import NotificationService
 from trend_scout_enterprise.workers.celery_app import celery_app
@@ -86,6 +88,7 @@ def run_scan(self, scan_run_id: str) -> dict:
         # Analyze new signals via LLM
         analyzed = 0
         failed_analysis = 0
+        new_items: list[RawItem] = []
         llm_service = get_default_llm_service_or_none(db)
         if llm_service and signals:
             new_items = (
@@ -101,6 +104,24 @@ def run_scan(self, scan_run_id: str) -> dict:
             analyzed = result.get("analyzed", 0)
             failed_analysis = result.get("failed", 0)
             errors.extend([f"Analysis error batch {i}" for i in range(failed_analysis)])
+
+        # Generate embeddings for semantic search (best-effort; never blocks scan)
+        if settings.vector_search_enabled and llm_service and new_items:
+            try:
+                embedding_service = EmbeddingService(llm_service)
+                emb_result = asyncio.run(
+                    embedding_service.generate_for_items(db, new_items)
+                )
+                logger.info(
+                    "scan_embeddings_generated",
+                    scan_run_id=scan_run_id,
+                    embedded=emb_result.get("embedded", 0),
+                    failed=emb_result.get("failed", 0),
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "scan_embedding_failed", scan_run_id=scan_run_id, error=str(exc)
+                )
 
         source.health_status = "healthy" if not errors else "completed_with_errors"
         if errors:

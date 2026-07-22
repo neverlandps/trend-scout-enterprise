@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     entra_redirect_uri: str = "http://localhost:5173/auth/callback"
     llm_default_base_url: str = "https://api.openai.com/v1"
     llm_default_model: str = "gpt-4o-mini"
+    vector_search_enabled: bool = False
+    embedding_model: str = "text-embedding-3-small"
     output_dir: str = "./outputs"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
