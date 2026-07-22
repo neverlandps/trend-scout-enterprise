@@ -48,8 +48,41 @@ def seed_api_key(db):
 
 
 def cleanup(db, key_id):
-    db.query(ApiKey).filter(ApiKey.id == key_id).delete()
-    db.commit()
+    """Remove smoke-created rows in FK-safe order (PostgreSQL enforces FKs)."""
+    from trend_scout_enterprise.models.models import (
+        Report,
+        ScanRun,
+        Source,
+        TeamMembership,
+    )
+
+    try:
+        source_ids = [
+            row[0] for row in db.query(Source.id).filter(Source.owner_id == key_id)
+        ]
+        if source_ids:
+            db.query(ScanRun).filter(ScanRun.source_id.in_(source_ids)).delete(
+                synchronize_session=False
+            )
+            # signal_reviews rows cascade via ON DELETE CASCADE on raw_item_id
+            db.query(RawItem).filter(RawItem.source_id.in_(source_ids)).delete(
+                synchronize_session=False
+            )
+            db.query(Source).filter(Source.owner_id == key_id).delete(
+                synchronize_session=False
+            )
+        db.query(Report).filter(Report.owner_id == key_id).delete(
+            synchronize_session=False
+        )
+        # TeamMembership references api_keys; the server auto-creates it on first use
+        db.query(TeamMembership).filter(TeamMembership.api_key_id == key_id).delete(
+            synchronize_session=False
+        )
+        db.query(ApiKey).filter(ApiKey.id == key_id).delete(synchronize_session=False)
+        db.commit()
+    except Exception:
+        # Cleanup is best-effort; smoke databases are disposable
+        db.rollback()
 
 
 def _is_redis_available(host: str = "127.0.0.1", port: int = 6379, timeout: float = 1.0) -> bool:
