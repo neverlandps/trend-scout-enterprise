@@ -13,7 +13,9 @@ class SignalReview(Base):
     __tablename__ = "signal_reviews"
 
     id = Column(String(36), primary_key=True)
-    raw_item_id = Column(String(36), ForeignKey("raw_items.id"), nullable=False)
+    raw_item_id = Column(
+        String(36), ForeignKey("raw_items.id", ondelete="CASCADE"), nullable=False
+    )
     workspace_id = Column(String(36), ForeignKey("workspaces.id"), nullable=False)
     reviewer_id = Column(String(36), ForeignKey("api_keys.id"), nullable=True)
     status = Column(String(20), nullable=False)  # approved/rejected/flagged/feedback
