@@ -9,7 +9,7 @@ from trend_scout_enterprise.main import app
 from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.models.models import ApiKey, Source, ScanRun, RawItem, ScoringProfile, LlmProvider, Report
 from trend_scout_enterprise.models.auth import MicrosoftAuthConfig, UserSession
-from trend_scout_enterprise.core.security import hash_api_key, get_key_prefix
+from trend_scout_enterprise.core.security import hash_api_key, get_key_prefix, verify_api_key_hash
 
 
 POSTGRES_URL = os.environ.get("TEST_DATABASE_URL", "postgresql+psycopg2://postgres:postgres@localhost:5432/trend_scout_test")
@@ -62,7 +62,8 @@ class TestPostgresSchema:
         postgres_session.commit()
         fetched = postgres_session.query(ApiKey).filter_by(id="test-key-1").first()
         assert fetched is not None
-        assert fetched.key_hash == hash_api_key("secret")
+        # bcrypt hashes are salted and non-deterministic; verify instead of comparing.
+        assert verify_api_key_hash("secret", fetched.key_hash)
 
     def test_source_relationship(self, postgres_session):
         owner = ApiKey(
