@@ -50,6 +50,7 @@ dependencies = [
     "structlog>=24.1",
     "croniter>=2.0",
     "slowapi>=0.1.9",
+    "langgraph>=1.2",
 ]
 
 [project.optional-dependencies]
