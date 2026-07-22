@@ -62,7 +62,14 @@ jobs:
       - name: Install dependencies
         run: |
           set -o pipefail
-          pip install --no-cache-dir --retries 10 --timeout 120 -e ".[dev]" 2>&1 | tee /tmp/pip-install.log
+          for i in 1 2 3 4 5; do
+            if pip install --no-cache-dir --retries 10 --timeout 120 -e ".[dev]" 2>&1 | tee /tmp/pip-install.log; then
+              break
+            fi
+            echo "::warning::pip install attempt $i failed (network), retrying in 15s..."
+            sleep 15
+            if [ "$i" = "5" ]; then exit 1; fi
+          done
 
       - name: Post install log to PR on failure
         if: failure() && github.event_name == 'pull_request'
