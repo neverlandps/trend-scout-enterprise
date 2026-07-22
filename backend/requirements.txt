@@ -16,6 +16,7 @@ feedparser==6.0.12
 python-multipart==0.0.26
 python-jose[cryptography]==3.5.0
 passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
 cryptography==46.0.7
 weasyprint==69.0
 python-pptx==1.0.2
