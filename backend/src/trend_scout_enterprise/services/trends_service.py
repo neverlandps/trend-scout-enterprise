@@ -2,17 +2,24 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import date, datetime, timedelta
 from typing import Literal
 
+import structlog
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from trend_scout_enterprise.agents.trend_analyst import TrendAnalystAgent
+from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.models.models import RawItem, Source
 from trend_scout_enterprise.models.trends import TopicTrendPoint, TrendEvidence
 from trend_scout_enterprise.schemas.trends import Granularity
+from trend_scout_enterprise.services.llm_service import get_default_llm_service_or_none
 
+
+logger = structlog.get_logger(__name__)
 
 GranularityStr = Literal["day", "week", "month"]
 
@@ -149,10 +156,53 @@ def aggregate_trends_for_workspace(
                 rationale=_build_rationale(item, rank),
             )
             db.add(evidence)
+
+        # Optional deep analysis: fill point.summary with the analyst's
+        # executive summary. Best-effort and disabled by default.
+        if settings.trend_analyst_enabled:
+            _apply_trend_analyst(db, point, sorted_items)
+
         created_points.append(point)
 
     db.commit()
     return created_points
+
+
+def _apply_trend_analyst(
+    db: Session,
+    point: TopicTrendPoint,
+    items: list[RawItem],
+) -> None:
+    """Run TrendAnalystAgent over the bucket's top evidence items.
+
+    Writes the analyst's executive summary into ``point.summary`` and stores
+    the full insight in each item's ``metadata_json["analyst_insight"]``.
+    Failures (no LLM configured, provider errors, running event loop) are
+    logged and never block aggregation.
+    """
+    if not items:
+        return
+    llm_service = get_default_llm_service_or_none(db)
+    if llm_service is None:
+        logger.info("trend_analyst_skipped", reason="llm_unavailable", point_id=point.id)
+        return
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        pass  # No running loop: safe to use asyncio.run below.
+    else:
+        logger.warning("trend_analyst_skipped", reason="running_event_loop", point_id=point.id)
+        return
+
+    agent = TrendAnalystAgent(llm_service)
+    try:
+        insight = asyncio.run(agent({"items": items, "point_id": point.id}))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("trend_analyst_failed", point_id=point.id, error=str(exc))
+        return
+    summary = insight.get("summary")
+    if summary:
+        point.summary = summary
 
 
 def _avg(items: list[RawItem], attr: str) -> float | None:

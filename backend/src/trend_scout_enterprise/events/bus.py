@@ -31,8 +31,12 @@ logger = structlog.get_logger(__name__)
 SCAN_COMPLETED = "scan.completed"
 # Same payload as SCAN_COMPLETED, emitted when the run ends in "failed".
 SCAN_FAILED = "scan.failed"
-# Emitted after a scoring batch completes. Payload: item_ids, workspace_id.
+# Emitted by services/analysis_service.analyze_signals_batch after a scoring
+# batch completes. Payload: item_ids, analyzed, failed.
 SIGNALS_SCORED = "signals.scored"
+# Emitted by agents/trend_analyst.TrendAnalystAgent after deep analysis of a
+# trend bucket's top evidence items. Payload: point_id, themes_count.
+TREND_ANALYZED = "trend.analyzed"
 # Emitted by the review endpoint. Payload: signal_id, action, reviewer_id,
 # workspace_id.
 SIGNAL_REVIEWED = "signal.reviewed"

@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     llm_default_base_url: str = "https://api.openai.com/v1"
     llm_default_model: str = "gpt-4o-mini"
     vector_search_enabled: bool = False
+    # When True, trend aggregation runs TrendAnalystAgent (LLM) per bucket and
+    # fills TopicTrendPoint.summary with the analyst's executive summary.
+    trend_analyst_enabled: bool = False
     embedding_model: str = "text-embedding-3-small"
     output_dir: str = "./outputs"
 
