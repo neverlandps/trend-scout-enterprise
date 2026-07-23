@@ -6,6 +6,7 @@ import structlog
 from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.core.database import SessionLocal
+from trend_scout_enterprise.events import REPORT_FAILED, REPORT_GENERATED, publish
 from trend_scout_enterprise.models.models import Report
 from trend_scout_enterprise.services.analysis_service import summarize_trends
 from trend_scout_enterprise.services.card_report_service import generate_card_report
@@ -56,12 +57,29 @@ def generate_report(self, report_id: str) -> dict:
         report.status = "completed"
         report.file_path = file_path
         db.commit()
+        publish(
+            REPORT_GENERATED,
+            {
+                "report_id": report_id,
+                "workspace_id": report.workspace_id,
+                "report_type": report.report_type,
+                "file_path": file_path,
+            },
+        )
         return {"report_id": report_id, "status": "completed", "file_path": file_path}
     except Exception as exc:
         if report:
             report.status = "failed"
             db.commit()
         logger.error("report_generation_failed", report_id=report_id, error=str(exc))
+        publish(
+            REPORT_FAILED,
+            {
+                "report_id": report_id,
+                "workspace_id": report.workspace_id if report else None,
+                "error": str(exc),
+            },
+        )
         raise self.retry(exc=exc)
     finally:
         db.close()

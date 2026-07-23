@@ -38,6 +38,7 @@ from langgraph.graph import END, START, StateGraph
 from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.core.database import SessionLocal
 from trend_scout_enterprise.core.encryption import decrypt_dict
+from trend_scout_enterprise.events import SCAN_COMPLETED, SCAN_FAILED, publish
 from trend_scout_enterprise.models.models import RawItem, ScanRun, Source
 from trend_scout_enterprise.scanners import get_scanner
 
@@ -271,6 +272,25 @@ def finalize(state: ScanState) -> dict[str, Any]:
             source.last_scan_at = datetime.utcnow()
 
         db.commit()
+
+        # Publish a completion/failure event for extension hooks (report
+        # triggers, metrics, webhooks). Best-effort: the bus itself swallows
+        # handler exceptions, so this never affects the scan outcome.
+        event_type = SCAN_FAILED if status == "failed" else SCAN_COMPLETED
+        publish(
+            event_type,
+            {
+                "scan_run_id": state["scan_run_id"],
+                "source_id": source_id,
+                "workspace_id": state.get("workspace_id")
+                or (scan_run.workspace_id if scan_run else None),
+                "status": status,
+                "items_collected": len(state.get("signals", [])),
+                "items_new": len(state.get("new_item_ids", [])),
+                "items_analyzed": state.get("analyzed", 0),
+                "items_failed": state.get("failed_analysis", 0),
+            },
+        )
         return {"status": status}
     finally:
         db.close()

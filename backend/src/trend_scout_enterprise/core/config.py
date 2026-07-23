@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     review_mode_enabled: bool = False
     human_review_threshold: float = 0.4
     auto_approve_threshold: float = 0.7
+    # Anomaly detection only takes effect while review_mode_enabled is True.
+    anomaly_detection_enabled: bool = False
+    anomaly_zscore_threshold: float = 2.5
     entra_dummy_mode: bool = False
     entra_tenant_id: str = ""
     entra_client_id: str = ""

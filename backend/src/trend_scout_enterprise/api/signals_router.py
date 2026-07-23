@@ -14,6 +14,7 @@ from trend_scout_enterprise.core.dependencies import (
     get_current_workspace_unified,
 )
 from trend_scout_enterprise.core.encryption import decrypt_value
+from trend_scout_enterprise.events import SIGNAL_REVIEWED, publish
 from trend_scout_enterprise.models.models import ApiKey, LlmProvider, RawItem, Source, Workspace
 from trend_scout_enterprise.models.signal_embedding import SignalEmbedding
 from trend_scout_enterprise.models.signal_review import SignalReview
@@ -247,6 +248,16 @@ def review_signal(
         resource_type="signal",
         resource_id=item.id,
         detail={"action": request.action, "human_score": request.human_score},
+    )
+    # Notify extension hooks; the audit record above remains authoritative.
+    publish(
+        SIGNAL_REVIEWED,
+        {
+            "signal_id": item.id,
+            "action": request.action,
+            "reviewer_id": api_key.id,
+            "workspace_id": workspace.id,
+        },
     )
     return review
 
