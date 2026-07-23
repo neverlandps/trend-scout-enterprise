@@ -140,3 +140,26 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           cat trivy-report.txt >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo '(no report produced)' >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+  # Software Bill of Materials for the repository and the backend image deps.
+  # NOTE: informational only during the observation period.
+  sbom:
+    runs-on: ubuntu-latest
+    continue-on-error: true # TODO(observation period, 2 weeks): set to false
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate SBOM with Syft
+        uses: anchore/sbom-action@v0.17.2
+        with:
+          path: .
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: trend-scout-sbom
+          path: sbom.spdx.json
+          if-no-files-found: error
