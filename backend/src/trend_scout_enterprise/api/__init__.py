@@ -11,12 +11,14 @@ from trend_scout_enterprise.api.sharepoint_router import router as sharepoint_ro
 from trend_scout_enterprise.api.schedule_router import router as schedule_router
 from trend_scout_enterprise.api.trends_router import router as trends_router
 from trend_scout_enterprise.api.embed_token_router import router as embed_token_router
+from trend_scout_enterprise.api.review_assignment_router import router as review_assignment_router
 
 __all__ = [
     "auth_router",
     "embed_token_router",
     "health_router",
     "llm_fallback_router",
+    "review_assignment_router",
     "schedule_router",
     "sharepoint_router",
     "signals_router",

@@ -11,6 +11,7 @@ from trend_scout_enterprise.api import (
     embed_token_router,
     health_router,
     llm_fallback_router,
+    review_assignment_router,
     schedule_router,
     sources_router,
     scans_router,
@@ -112,6 +113,7 @@ app.include_router(schedule_router, prefix="/api/v1", tags=["schedules"])
 app.include_router(trends_router, prefix="/api/v1", tags=["trends"])
 app.include_router(embed_token_router, prefix="/api/v1", tags=["embed-tokens"])
 app.include_router(llm_fallback_router, prefix="/api/v1", tags=["llm-fallback"])
+app.include_router(review_assignment_router, prefix="/api/v1", tags=["review-assignments"])
 
 
 if __name__ == "__main__":

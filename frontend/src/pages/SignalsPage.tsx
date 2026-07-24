@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import axios from 'axios'
 import {
   DefaultButton,
   DetailsList,
@@ -15,6 +16,7 @@ import {
   Pivot,
   PivotItem,
   PrimaryButton,
+  SearchBox,
   Selection,
   SelectionMode,
   Spinner,
@@ -31,6 +33,8 @@ import {
   fetchSignals,
   fetchSources,
   reviewSignal,
+  semanticSearchSignals,
+  SimilarSignal,
   Source,
   Signal,
   submitSignalFeedback,
@@ -84,6 +88,8 @@ export function SignalsPage() {
   const [feedbackType, setFeedbackType] = useState<FeedbackType>('score_too_low')
   const [feedbackNotes, setFeedbackNotes] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<SimilarSignal[] | null>(null)
 
   const sourceNameById = useMemo(() => {
     const map: Record<string, string> = {}
@@ -167,8 +173,34 @@ export function SignalsPage() {
     }
   }
 
-  const openDetail = (signal: Signal) => {
-    setDetailSignal(signal)
+  const handleSearch = async () => {
+    const q = searchQuery.trim()
+    if (!q) return
+    setLoading(true)
+    setError(null)
+    setInfo(null)
+    try {
+      const res = await semanticSearchSignals(q)
+      setSearchResults(res.results)
+      if (res.results.length === 0) setInfo(`No semantic matches for "${q}".`)
+    } catch (e) {
+      if (axios.isAxiosError(e) && e.response?.status === 503) {
+        setInfo('Semantic search is not enabled on the backend.')
+      } else {
+        setError(String(e))
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const clearSearch = () => {
+    setSearchResults(null)
+    setSearchQuery('')
+    setInfo(null)
+  }
+
+  const openDetail = (signal: Signal) => {    setDetailSignal(signal)
     setOverrideScore(signal.human_score != null ? String(signal.human_score) : '')
     setOverrideNotes('')
     setFeedbackScore('')
@@ -277,6 +309,50 @@ export function SignalsPage() {
     },
   ]
 
+  const searchColumns: IColumn[] = [
+    {
+      key: 'title',
+      name: 'Title',
+      minWidth: 180,
+      maxWidth: 320,
+      isResizable: true,
+      onRender: (item: SimilarSignal) => (
+        <span title={item.signal.title ?? item.signal.url} style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {item.signal.title ?? item.signal.url}
+        </span>
+      ),
+    },
+    {
+      key: 'source',
+      name: 'Source',
+      minWidth: 100,
+      maxWidth: 160,
+      isResizable: true,
+      onRender: (item: SimilarSignal) => <Text variant="small">{sourceNameById[item.signal.source_id] ?? item.signal.source_id}</Text>,
+    },
+    {
+      key: 'similarity',
+      name: 'Similarity',
+      minWidth: 80,
+      maxWidth: 100,
+      onRender: (item: SimilarSignal) => <Text>{item.similarity.toFixed(3)}</Text>,
+    },
+    {
+      key: 'score',
+      name: 'Score',
+      minWidth: 60,
+      maxWidth: 80,
+      onRender: (item: SimilarSignal) => <Text>{item.signal.overall_score != null ? item.signal.overall_score.toFixed(2) : '-'}</Text>,
+    },
+    {
+      key: 'status',
+      name: 'Status',
+      minWidth: 110,
+      maxWidth: 140,
+      onRender: (item: SimilarSignal) => <StatusBadge status={item.signal.review_status ?? 'auto'} />,
+    },
+  ]
+
   const scoreRow = (label: string, value: number | null | undefined) => (
     <Stack horizontal horizontalAlign="space-between" styles={{ root: { padding: '2px 0' } }}>
       <Text variant="small">{label}</Text>
@@ -299,6 +375,40 @@ export function SignalsPage() {
           {info}
         </MessageBar>
       )}
+      <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign="center">
+        <SearchBox
+          placeholder="Semantic search, e.g. 'battery recycling breakthroughs'"
+          value={searchQuery}
+          onChange={(_, v) => setSearchQuery(v ?? '')}
+          onSearch={handleSearch}
+          onClear={clearSearch}
+          styles={{ root: { width: 420 } }}
+        />
+        {searchResults !== null && <DefaultButton text="Clear search" onClick={clearSearch} />}
+      </Stack>
+      {searchResults !== null ? (
+        loading ? (
+          <Spinner size={SpinnerSize.medium} label="Searching..." />
+        ) : (
+          <Stack tokens={{ childrenGap: 8 }}>
+            <Text variant="mediumPlus" styles={{ root: { fontWeight: FontWeights.semibold } }}>
+              Semantic search results ({searchResults.length})
+            </Text>
+            {searchResults.length === 0 ? (
+              <Text>No results.</Text>
+            ) : (
+              <DetailsList
+                items={searchResults as unknown as IObjectWithKey[]}
+                columns={searchColumns}
+                selectionMode={SelectionMode.none}
+                onItemInvoked={(item: SimilarSignal) => openDetail(item.signal)}
+                compact
+              />
+            )}
+          </Stack>
+        )
+      ) : (
+      <>
       <Pivot
         selectedKey={filter}
         onLinkClick={(item) => setFilter((item?.props.itemKey as StatusFilter) ?? 'pending_review')}
@@ -327,6 +437,8 @@ export function SignalsPage() {
           onItemInvoked={openDetail}
           compact
         />
+      )}
+      </>
       )}
       <Panel
         isOpen={detailSignal !== null}

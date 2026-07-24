@@ -42,6 +42,15 @@ def validate_source_config(source_type: str, config: dict[str, Any]) -> None:
                 detail="Config 'connection_id' is required for sharepoint_list source type",
             )
         return
+    if source_type == "arxiv":
+        # ArxivScanner always queries the fixed export.arxiv.org endpoint and
+        # ignores any url field; the search query is the meaningful config.
+        if not config.get("query"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Config 'query' is required for arxiv source type",
+            )
+        return
     if not config.get("url"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

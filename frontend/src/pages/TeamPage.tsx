@@ -1,6 +1,12 @@
-import { PrimaryButton, Stack, Text, DetailsList, IColumn, TextField, Dropdown, IDropdownOption } from '@fluentui/react'
+import { PrimaryButton, DefaultButton, Stack, Text, DetailsList, IColumn, TextField, Dropdown, IDropdownOption, MessageBar, MessageBarType, FontWeights } from '@fluentui/react'
 import { useEffect, useState } from 'react'
-import api from '../services/api'
+import axios from 'axios'
+import api, {
+  createReviewAssignment,
+  deleteReviewAssignment,
+  fetchReviewAssignments,
+  ReviewAssignment,
+} from '../services/api'
 
 interface TeamMember {
   id: string
@@ -11,6 +17,15 @@ interface TeamMember {
   created_at: string
 }
 
+function errorMessage(e: unknown, fallback: string): string {
+  if (axios.isAxiosError(e)) {
+    const detail = e.response?.data?.detail
+    const status = e.response?.status
+    if (typeof detail === 'string') return status ? `${status}: ${detail}` : detail
+  }
+  return e instanceof Error ? `${fallback} (${e.message})` : fallback
+}
+
 export function TeamPage() {
   const [members, setMembers] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(false)
@@ -19,11 +34,17 @@ export function TeamPage() {
   const [role, setRole] = useState('analyst')
   const [invitedKey, setInvitedKey] = useState<string | null>(null)
 
+  const [assignments, setAssignments] = useState<ReviewAssignment[]>([])
+  const [assignmentCategory, setAssignmentCategory] = useState('')
+  const [assignmentReviewer, setAssignmentReviewer] = useState<string | undefined>(undefined)
+  const [assignmentError, setAssignmentError] = useState<string | null>(null)
+
   const load = async () => {
     setLoading(true)
     try {
-      const res = await api.get('/team/members')
+      const [res, ra] = await Promise.all([api.get('/team/members'), fetchReviewAssignments()])
       setMembers(res.data)
+      setAssignments(ra)
     } catch (e) {
       setError(String(e))
     } finally {
@@ -41,6 +62,33 @@ export function TeamPage() {
       load()
     } catch (e) {
       setError(String(e))
+    }
+  }
+
+  const memberNameById = new Map(members.map(m => [m.id, m.name]))
+
+  const reviewerOptions: IDropdownOption[] = members.map(m => ({ key: m.id, text: m.name }))
+
+  const handleAddAssignment = async () => {
+    if (!assignmentCategory || !assignmentReviewer) return
+    setAssignmentError(null)
+    try {
+      await createReviewAssignment({ category: assignmentCategory, reviewer_id: assignmentReviewer })
+      setAssignmentCategory('')
+      setAssignmentReviewer(undefined)
+      load()
+    } catch (e) {
+      setAssignmentError(errorMessage(e, 'Failed to save review assignment'))
+    }
+  }
+
+  const handleDeleteAssignment = async (id: string) => {
+    setAssignmentError(null)
+    try {
+      await deleteReviewAssignment(id)
+      load()
+    } catch (e) {
+      setAssignmentError(errorMessage(e, 'Failed to delete review assignment'))
     }
   }
 
@@ -73,6 +121,45 @@ export function TeamPage() {
         <PrimaryButton text="Invite Member" onClick={handleInvite} disabled={!name} />
       </Stack>
       {loading ? <Text>Loading...</Text> : <DetailsList items={members} columns={columns} />}
+
+      <Stack tokens={{ childrenGap: 8 }} styles={{ root: { border: '1px solid #e5e7eb', borderRadius: 8, padding: 16 } }}>
+        <Text variant="large" styles={{ root: { fontWeight: FontWeights.semibold } }}>Review Assignments</Text>
+        {assignmentError && (
+          <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setAssignmentError(null)}>
+            {assignmentError}
+          </MessageBar>
+        )}
+        {assignments.map(a => (
+          <Stack key={a.id} horizontal tokens={{ childrenGap: 8 }} verticalAlign="center">
+            <Text styles={{ root: { width: 160 } }}>{a.category}</Text>
+            <Text variant="small" styles={{ root: { width: 160, color: 'gray' } }}>
+              {memberNameById.get(a.reviewer_id) ?? a.reviewer_id}
+            </Text>
+            <Text variant="small" styles={{ root: { width: 170, color: 'gray' } }}>
+              {new Date(a.created_at).toLocaleDateString()}
+            </Text>
+            <DefaultButton text="Delete" onClick={() => handleDeleteAssignment(a.id)} />
+          </Stack>
+        ))}
+        {assignments.length === 0 && <Text variant="small" styles={{ root: { color: 'gray' } }}>No review assignments yet.</Text>}
+        <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign="end">
+          <TextField
+            label="Category"
+            value={assignmentCategory}
+            onChange={(_, v) => setAssignmentCategory(v || '')}
+            placeholder="e.g. energy"
+          />
+          <Dropdown
+            label="Reviewer"
+            selectedKey={assignmentReviewer}
+            options={reviewerOptions}
+            onChange={(_, o) => setAssignmentReviewer(o ? String(o.key) : undefined)}
+            placeholder="Select reviewer"
+            styles={{ dropdown: { width: 200 } }}
+          />
+          <PrimaryButton text="Add Assignment" onClick={handleAddAssignment} disabled={!assignmentCategory || !assignmentReviewer} />
+        </Stack>
+      </Stack>
     </Stack>
   )
 }

@@ -95,7 +95,7 @@ def test_list_sources():
     db = next(override_get_db())
     owner, _ = _create_owner(db)
     create_source(db, SourceCreate(name="A", source_type="rss", config={"url": "http://a.com"}), owner, owner.workspace_id if getattr(owner, "workspace_id", None) else None)
-    create_source(db, SourceCreate(name="B", source_type="arxiv", config={"url": "http://b.com"}), owner, owner.workspace_id if getattr(owner, "workspace_id", None) else None)
+    create_source(db, SourceCreate(name="B", source_type="arxiv", config={"query": "trend"}) , owner, owner.workspace_id if getattr(owner, "workspace_id", None) else None)
     sources = list_sources(db, owner, None)
     assert len(sources) == 2
 

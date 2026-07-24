@@ -218,6 +218,7 @@ export interface TrendAggregateRequest {
   end_date?: string
   granularity?: 'day' | 'week' | 'month'
   top_evidence_count?: number
+  only_approved?: boolean
 }
 
 export async function aggregateTrends(payload: TrendAggregateRequest): Promise<TrendPoint[]> {
@@ -413,4 +414,178 @@ export async function fetchScoringSettings(): Promise<ScoringSettings> {
 export async function updateScoringSettings(payload: ScoringSettings): Promise<ScoringSettings> {
   const res = await api.put('/settings/scoring', payload)
   return res.data
+}
+
+// ---------------------------------------------------------------------------
+// Scan schedules
+// ---------------------------------------------------------------------------
+
+export interface ScanSchedule {
+  id: string
+  source_id: string
+  cron_expression: string
+  timezone: string
+  is_enabled: boolean
+  last_run_at: string | null
+  next_run_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ScanScheduleRequest {
+  source_id: string
+  cron_expression?: string
+  timezone?: string
+  is_enabled?: boolean
+}
+
+export async function fetchSchedules(): Promise<ScanSchedule[]> {
+  const res = await api.get('/schedules')
+  return res.data
+}
+
+export async function createSchedule(payload: ScanScheduleRequest): Promise<ScanSchedule> {
+  const res = await api.post('/schedules', payload)
+  return res.data
+}
+
+export async function deleteSchedule(id: string): Promise<void> {
+  await api.delete(`/schedules/${id}`)
+}
+
+// ---------------------------------------------------------------------------
+// Notification channels
+// ---------------------------------------------------------------------------
+
+export interface NotificationChannel {
+  id: string
+  owner_id: string
+  channel_type: string
+  name: string
+  is_enabled: boolean
+  on_scan_success: boolean
+  on_scan_failure: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface NotificationChannelRequest {
+  channel_type: 'email' | 'teams_webhook'
+  name: string
+  config: Record<string, unknown>
+  on_scan_success?: boolean
+  on_scan_failure?: boolean
+}
+
+export async function fetchNotificationChannels(): Promise<NotificationChannel[]> {
+  const res = await api.get('/notifications/channels')
+  return res.data
+}
+
+export async function createNotificationChannel(payload: NotificationChannelRequest): Promise<NotificationChannel> {
+  const res = await api.post('/notifications/channels', payload)
+  return res.data
+}
+
+export async function deleteNotificationChannel(id: string): Promise<void> {
+  await api.delete(`/notifications/channels/${id}`)
+}
+
+// ---------------------------------------------------------------------------
+// Semantic search
+// ---------------------------------------------------------------------------
+
+export interface SimilarSignal {
+  signal: Signal
+  similarity: number
+}
+
+export interface SemanticSearchResult {
+  query: string
+  results: SimilarSignal[]
+}
+
+export async function semanticSearchSignals(query: string, limit = 20): Promise<SemanticSearchResult> {
+  const res = await api.get('/signals/semantic-search', { params: { q: query, limit } })
+  return res.data
+}
+
+// ---------------------------------------------------------------------------
+// Embed tokens (SharePoint)
+// ---------------------------------------------------------------------------
+
+export interface EmbedToken {
+  id: string
+  workspace_id: string
+  name: string
+  token_prefix: string
+  scopes: string
+  expires_at: string
+  revoked_at: string | null
+  last_used_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface EmbedTokenWithPlaintext {
+  token: string
+  embed_token: EmbedToken
+}
+
+export async function fetchEmbedTokens(workspaceId: string): Promise<EmbedToken[]> {
+  const res = await api.get(`/workspaces/${workspaceId}/embed-tokens`)
+  return res.data
+}
+
+export async function createEmbedToken(
+  workspaceId: string,
+  payload: { name?: string; ttl_days?: number }
+): Promise<EmbedTokenWithPlaintext> {
+  const res = await api.post(`/workspaces/${workspaceId}/embed-token`, payload)
+  return res.data
+}
+
+export async function revokeEmbedToken(workspaceId: string, tokenId: string): Promise<EmbedToken> {
+  const res = await api.post(`/workspaces/${workspaceId}/embed-tokens/${tokenId}/revoke`, {})
+  return res.data
+}
+
+export async function rotateEmbedToken(
+  workspaceId: string,
+  tokenId: string,
+  payload: { name?: string; ttl_days?: number } = {}
+): Promise<EmbedTokenWithPlaintext> {
+  const res = await api.post(`/workspaces/${workspaceId}/embed-tokens/${tokenId}/rotate`, payload)
+  return res.data
+}
+
+// ---------------------------------------------------------------------------
+// Review assignments
+// ---------------------------------------------------------------------------
+
+export interface ReviewAssignment {
+  id: string
+  workspace_id: string
+  category: string
+  reviewer_id: string
+  created_at: string
+}
+
+export interface ReviewAssignmentRequest {
+  category: string
+  reviewer_id: string
+}
+
+export async function fetchReviewAssignments(): Promise<ReviewAssignment[]> {
+  const res = await api.get('/review-assignments')
+  return res.data
+}
+
+export async function createReviewAssignment(payload: ReviewAssignmentRequest): Promise<ReviewAssignment> {
+  const res = await api.post('/review-assignments', payload)
+  return res.data
+}
+
+export async function deleteReviewAssignment(id: string): Promise<void> {
+  await api.delete(`/review-assignments/${id}`)
 }
