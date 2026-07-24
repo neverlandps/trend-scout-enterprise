@@ -11,7 +11,8 @@
       "name": "Mars",
       "websiteUrl": "https://example.com",
       "privacyUrl": "https://example.com/privacy",
-      "termsOfUseUrl": "https://example.com/terms"
+      "termsOfUseUrl": "https://example.com/terms",
+      "mpnId": "00000000-0000-0000-0000-000000000000"
     },
     "metadata": {
       "shortDescription": {

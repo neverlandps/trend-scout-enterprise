@@ -1,0 +1,70 @@
+{
+  "id": "1e3e4f5a-6b7c-8d9e-0f1a-2b3c4d5e6f7c",
+  "alias": "TrendScoutWebPart",
+  "componentType": "WebPart",
+  "version": "0.1.0",
+  "manifestVersion": 2,
+  "requiresCustomScript": false,
+  "supportedHosts": [
+    "SharePointWebPart",
+    "TeamsTab"
+  ],
+  "preconfiguredEntries": [
+    {
+      "groupId": "5c03119e-3074-46fd-9b9c-1c316e823644",
+      "group": {
+        "default": "Trends"
+      },
+      "title": {
+        "default": "Trend Scout"
+      },
+      "description": {
+        "default": "Display trend signals and scoring summaries from Trend Scout Enterprise."
+      },
+      "officeFabricIconFontName": "Trending12",
+      "properties": {
+        "apiBaseUrl": "https://your-trend-scout-api.example.com/api/v1",
+        "apiKey": "",
+        "workspaceId": "",
+        "view": "signals"
+      }
+    }
+  ],
+  "loaderConfig": {
+    "internalModuleBaseUrls": [
+      "<PATH_TO_YOUR_CDN>"
+    ],
+    "entryModuleId": "trend-scout-web-part",
+    "scriptResources": {
+      "trend-scout-web-part": {
+        "type": "path",
+        "path": "trend-scout-web-part_712f15289a625845134e.js"
+      },
+      "react": {
+        "type": "component",
+        "id": "0d910c1c-13b9-4e1c-9aa4-b008c5e42d7d",
+        "version": "17.0.2"
+      },
+      "react-dom": {
+        "type": "component",
+        "id": "aa0a46ec-1505-43cd-a44a-93f3a5aa460a",
+        "version": "17.0.2"
+      },
+      "@microsoft/sp-core-library": {
+        "type": "component",
+        "id": "7263c7d0-1d6a-45ec-8d85-d4d1d234171b",
+        "version": "1.20.0"
+      },
+      "@microsoft/sp-property-pane": {
+        "type": "component",
+        "id": "f9e737b7-f0df-4597-ba8c-3060f82380db",
+        "version": "1.20.0"
+      },
+      "@microsoft/sp-webpart-base": {
+        "type": "component",
+        "id": "974a7777-0990-4136-8fa6-95d80114c2e0",
+        "version": "1.20.0"
+      }
+    }
+  }
+}

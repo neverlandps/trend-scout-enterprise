@@ -1,0 +1,8 @@
+{
+  "bundles": {
+    "trend-scout-web-part": {
+      "dependencies": [],
+      "asyncChunks": {}
+    }
+  }
+}
