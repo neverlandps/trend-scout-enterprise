@@ -89,7 +89,7 @@ def graph_context(test_db, default_workspace, default_api_key, monkeypatch):
     return test_db, source, scan_run
 
 
-def test_load_context_missing_scan_run_routes_to_fail(test_db):
+def test_load_context_missing_scan_run_routes_to_fail(graph_context):
     state = {"scan_run_id": "missing-scan-run", "errors": []}
     update = load_context(state)
     assert update["status"] == "failed"
