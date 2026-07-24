@@ -223,6 +223,25 @@ class BulkReviewResult(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Vector Search (Semantic Retrieval)
+# ---------------------------------------------------------------------------
+
+
+class SimilarSignalOut(BaseModel):
+    """A signal ranked by embedding similarity to a reference signal/query."""
+
+    signal: RawItemOut
+    similarity: float
+
+
+class SemanticSearchOut(BaseModel):
+    """Response schema for a semantic search over signal embeddings."""
+
+    query: str
+    results: list[SimilarSignalOut]
+
+
+# ---------------------------------------------------------------------------
 # Scoring Profiles
 # ---------------------------------------------------------------------------
 

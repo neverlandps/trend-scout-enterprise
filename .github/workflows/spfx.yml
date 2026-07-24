@@ -24,22 +24,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          # Use package.json as the cache key source when no lock file exists yet.
-          # Once a package-lock.json is committed, this can be replaced with cache: 'npm'.
           cache: 'npm'
-          cache-dependency-path: 'spfx-webpart/package.json'
+          cache-dependency-path: 'spfx-webpart/package-lock.json'
 
       - name: Install dependencies
-        run: npm install --no-fund --no-audit --no-progress
-        # Generates package-lock.json if it is missing. The lock file is uploaded
-        # as an artifact so it can be reviewed and committed to the repository.
-
-      - name: Upload package-lock.json as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: trend-scout-spfx-package-lock
-          path: spfx-webpart/package-lock.json
-          if-no-files-found: warn
+        # Deterministic install from the committed lock file. legacy-peer-deps
+        # is required because the SPFx toolchain has loose peer declarations.
+        run: npm ci --no-fund --no-audit --no-progress --legacy-peer-deps
 
       - name: Build SPFx package
         run: |

@@ -19,16 +19,20 @@
     "@microsoft/sp-webpart-base": "1.20.0",
     "tslib": "2.6.2"
   },
+  "overrides": {
+    "@microsoft/sp-module-interfaces": "1.20.1"
+  },
   "devDependencies": {
     "@microsoft/eslint-config-spfx": "1.20.0",
     "@microsoft/rush-stack-compiler-4.7": "0.1.0",
     "@microsoft/sp-build-web": "1.20.0",
-    "@microsoft/sp-module-interfaces": "1.20.0",
+    "@microsoft/sp-module-interfaces": "1.20.1",
     "@types/react": "17.0.45",
     "@types/react-dom": "17.0.17",
     "@types/webpack-env": "1.15.2",
     "ajv": "6.12.5",
     "eslint": "8.7.0",
+    "eslint-plugin-react-hooks": "^4.6.2",
     "gulp": "4.0.2",
     "react": "17.0.2",
     "react-dom": "17.0.2",

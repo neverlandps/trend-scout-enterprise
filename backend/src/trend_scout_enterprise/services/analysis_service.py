@@ -5,6 +5,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from trend_scout_enterprise.events.bus import SIGNALS_SCORED, publish
 from trend_scout_enterprise.models.models import RawItem
 from trend_scout_enterprise.schemas.schemas import ScoringDimension
 from trend_scout_enterprise.services.llm_service import LlmService
@@ -52,6 +53,8 @@ async def analyze_signals_batch(
     are not coroutine-safe. If the LLM provider fails repeatedly (consecutive
     failures reach ``CIRCUIT_BREAKER_THRESHOLD``), the circuit breaker trips
     and the remaining items are marked failed without further LLM calls.
+    Publishes a ``SIGNALS_SCORED`` event (item_ids, analyzed, failed) once
+    the batch completes.
 
     Args:
         db: SQLAlchemy session.
@@ -125,6 +128,10 @@ async def analyze_signals_batch(
             failed += 1
 
     average_score = total_score / analyzed if analyzed > 0 else 0.0
+    publish(
+        SIGNALS_SCORED,
+        {"item_ids": item_ids, "analyzed": analyzed, "failed": failed},
+    )
     return {
         "analyzed": analyzed,
         "failed": failed,

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from trend_scout_enterprise.core.audit import record_audit
+from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.core.database import get_db
 from trend_scout_enterprise.core.dependencies import (
     get_current_api_key,
@@ -13,7 +14,9 @@ from trend_scout_enterprise.core.dependencies import (
     get_current_workspace_unified,
 )
 from trend_scout_enterprise.core.encryption import decrypt_value
+from trend_scout_enterprise.events import SIGNAL_REVIEWED, publish
 from trend_scout_enterprise.models.models import ApiKey, LlmProvider, RawItem, Source, Workspace
+from trend_scout_enterprise.models.signal_embedding import SignalEmbedding
 from trend_scout_enterprise.models.signal_review import SignalReview
 from trend_scout_enterprise.schemas import (
     BulkReviewFailure,
@@ -23,11 +26,14 @@ from trend_scout_enterprise.schemas import (
     RawItemOut,
     ReviewActionRequest,
     ReviewOut,
+    SemanticSearchOut,
     SignalAnalyzeOut,
     SignalAnalyzeRequest,
     SignalListOut,
+    SimilarSignalOut,
 )
 from trend_scout_enterprise.services.analysis_service import analyze_signals_batch
+from trend_scout_enterprise.services.embedding_service import EmbeddingService, top_k_similar
 from trend_scout_enterprise.services.llm_service import LlmService
 
 router = APIRouter()
@@ -243,6 +249,16 @@ def review_signal(
         resource_id=item.id,
         detail={"action": request.action, "human_score": request.human_score},
     )
+    # Notify extension hooks; the audit record above remains authoritative.
+    publish(
+        SIGNAL_REVIEWED,
+        {
+            "signal_id": item.id,
+            "action": request.action,
+            "reviewer_id": api_key.id,
+            "workspace_id": workspace.id,
+        },
+    )
     return review
 
 
@@ -284,6 +300,90 @@ def submit_signal_feedback(
         },
     )
     return review
+
+
+# ---------------------------------------------------------------------------
+# Vector search (semantic retrieval)
+# ---------------------------------------------------------------------------
+
+
+def _require_vector_search_enabled() -> None:
+    """Raise 503 when the vector search feature flag is off."""
+    if not settings.vector_search_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Vector search is disabled",
+        )
+
+
+def _workspace_embeddings(db: Session, workspace_id: str) -> list[SignalEmbedding]:
+    return (
+        db.query(SignalEmbedding)
+        .filter(SignalEmbedding.workspace_id == workspace_id)
+        .all()
+    )
+
+
+@router.get("/signals/semantic-search", response_model=SemanticSearchOut)
+async def semantic_search_signals(
+    q: str,
+    limit: int = 20,
+    db: Session = Depends(get_db),  # noqa: B008 - FastAPI dependency idiom, matches this module
+    workspace: Workspace = Depends(get_current_workspace_unified),  # noqa: B008
+) -> SemanticSearchOut:
+    """Search signals semantically by embedding the query and ranking by cosine similarity."""
+    _require_vector_search_enabled()
+    if not q.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Query must not be empty"
+        )
+    llm_service = _get_default_llm_service(db)
+    embedding_service = EmbeddingService(llm_service)
+    query_vector = (await embedding_service.embed_texts([q]))[0]
+
+    rows = _workspace_embeddings(db, workspace.id)
+    ranked = top_k_similar(query_vector, rows, limit)
+    return SemanticSearchOut(
+        query=q,
+        results=[
+            SimilarSignalOut(signal=RawItemOut.model_validate(row.raw_item), similarity=score)
+            for row, score in ranked
+        ],
+    )
+
+
+@router.get("/signals/{signal_id}/similar", response_model=list[SimilarSignalOut])
+def get_similar_signals(
+    signal_id: str,
+    limit: int = 10,
+    db: Session = Depends(get_db),  # noqa: B008 - FastAPI dependency idiom, matches this module
+    workspace: Workspace = Depends(get_current_workspace_unified),  # noqa: B008
+) -> list[SimilarSignalOut]:
+    """Return signals most similar to the given signal by embedding cosine similarity."""
+    _require_vector_search_enabled()
+    signal = _get_workspace_signal(db, signal_id, workspace.id)
+
+    reference = (
+        db.query(SignalEmbedding)
+        .filter(SignalEmbedding.raw_item_id == signal.id)
+        .first()
+    )
+    if not reference:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Signal has no embedding; run a scan with vector search enabled first",
+        )
+
+    rows = [
+        row
+        for row in _workspace_embeddings(db, workspace.id)
+        if row.raw_item_id != signal.id
+    ]
+    ranked = top_k_similar(list(reference.embedding or []), rows, limit)
+    return [
+        SimilarSignalOut(signal=RawItemOut.model_validate(row.raw_item), similarity=score)
+        for row, score in ranked
+    ]
 
 
 @router.get("/signals/{signal_id}", response_model=RawItemOut)

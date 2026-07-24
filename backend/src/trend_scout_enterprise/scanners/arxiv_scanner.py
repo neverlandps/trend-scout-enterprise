@@ -47,7 +47,10 @@ class ArxivScanner(BaseScanner):
             response.raise_for_status()
         import xml.etree.ElementTree as ET
 
-        root = ET.fromstring(response.text)
+        # nosec B314: arXiv Atom feed from a trusted upstream over HTTPS; stdlib
+        # ElementTree does not resolve external entities, and only plain-text
+        # fields are extracted below.
+        root = ET.fromstring(response.text)  # nosec B314
         ns = {"atom": "http://www.w3.org/2005/Atom"}
         signals: list[RawSignal] = []
         for entry in root.findall("atom:entry", ns):

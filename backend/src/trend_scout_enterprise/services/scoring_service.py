@@ -8,6 +8,7 @@ from trend_scout_enterprise.core.config import settings
 from trend_scout_enterprise.models.models import RawItem, ScoringProfile
 from trend_scout_enterprise.models.review_assignment import ReviewAssignment
 from trend_scout_enterprise.schemas.schemas import ScoringDimension
+from trend_scout_enterprise.services.anomaly_service import AnomalyService
 from trend_scout_enterprise.services.llm_service import LlmService
 
 
@@ -180,11 +181,39 @@ def _apply_review_routing(db: Session, item: RawItem) -> None:
     at or above the auto-approve threshold are approved automatically;
     anything below it is queued for human review and assigned to the
     reviewer configured for the item's source category, if any.
+
+    When ``anomaly_detection_enabled`` is also on, an item whose score
+    falls in the auto-approve range but is a statistical outlier versus
+    its source/category history is diverted to ``pending_review`` with
+    the reason recorded in ``metadata_json["anomaly_reason"]``.
     """
     if not settings.review_mode_enabled:
         return
     score = item.overall_score if item.overall_score is not None else 0.0
     if score >= settings.auto_approve_threshold:
+        if settings.anomaly_detection_enabled:
+            source = item.source
+            category = source.category if source is not None else None
+            anomaly_service = AnomalyService(db)
+            # NOTE(batch-optimization): this issues one history query per item.
+            # If scoring ever moves to batch processing, prefetch historical
+            # scores once per (source_id, category) scope and pass them into
+            # detect_score_anomaly directly.
+            historical_scores = anomaly_service.get_historical_scores(
+                item.workspace_id,
+                source_id=item.source_id,
+                category=category,
+                exclude_item_id=item.id,
+            )
+            is_anomaly, reason = anomaly_service.detect_score_anomaly(
+                item, historical_scores
+            )
+            if is_anomaly:
+                item.review_status = "pending_review"
+                metadata = dict(item.metadata_json or {})
+                metadata["anomaly_reason"] = reason
+                item.metadata_json = metadata
+                return
         item.review_status = "approved"
         return
     item.review_status = "pending_review"

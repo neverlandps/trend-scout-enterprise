@@ -43,6 +43,9 @@ from trend_scout_enterprise.models.review_assignment import (
 from trend_scout_enterprise.models.signal_review import (
     SignalReview,
 )
+from trend_scout_enterprise.models.signal_embedding import (
+    SignalEmbedding,
+)
 from trend_scout_enterprise.core.database import Base
 
 __all__ = [
@@ -64,6 +67,7 @@ __all__ = [
     "ScoringProfile",
     "SharePointConnection",
     "SharePointUploadRecord",
+    "SignalEmbedding",
     "SignalReview",
     "Source",
     "Team",
