@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trend Scout Enterprise — AI 驱动的企业趋势侦察自动化平台</title>
+<style>
+  :root {
+    --bg: #0a1120;
+    --bg-2: #0e1930;
+    --surface: #12203c;
+    --surface-2: #16264a;
+    --border: rgba(148, 178, 255, 0.14);
+    --text: #e8eefb;
+    --text-muted: #93a5c4;
+    --accent: #3b82f6;
+    --accent-2: #22d3ee;
+    --accent-soft: rgba(59, 130, 246, 0.14);
+    --green: #22c55e;
+    --orange: #f59e0b;
+    --red: #ef4444;
+    --purple: #a78bfa;
+    --fluent: #0078d4;
+    --radius: 14px;
+    --maxw: 1180px;
+    --font: "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", "Noto Sans CJK SC", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --mono: "Cascadia Code", "JetBrains Mono", Consolas, "Courier New", monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: none; }
+  svg.ic { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: 0 0 auto; }
+  svg.ic.fill { fill: currentColor; stroke: none; }
+  .brand-mark svg.ic { width: 17px; height: 17px; color: #fff; }
+  .hero-badge svg.ic { width: 13px; height: 13px; }
+  .btn svg.ic { width: 15px; height: 15px; }
+  .mock-nav-item svg.ic { width: 15px; height: 15px; }
+  .evidence-chips svg.ic { width: 11px; height: 11px; vertical-align: -1px; margin-right: 4px; }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+  section { padding: 88px 0; }
+  .section-tag {
+    display: inline-block;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    color: var(--accent-2);
+    border: 1px solid rgba(34, 211, 238, 0.35);
+    border-radius: 999px;
+    padding: 4px 14px;
+    margin-bottom: 16px;
+  }
+  h2.section-title { font-size: 34px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 12px; }
+  .section-sub { color: var(--text-muted); max-width: 640px; margin-bottom: 48px; font-size: 16px; }
+
+  /* ---------- 导航栏 ---------- */
+  .nav {
+    position: sticky; top: 0; z-index: 100;
+    backdrop-filter: blur(14px);
+    background: rgba(10, 17, 32, 0.82);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-inner {
+    max-width: var(--maxw); margin: 0 auto; padding: 0 24px;
+    height: 64px; display: flex; align-items: center; gap: 28px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: grid; place-items: center; font-size: 15px;
+  }
+  .brand small { color: var(--text-muted); font-weight: 500; }
+  .nav-links { display: flex; gap: 4px; margin-left: auto; }
+  .nav-links a {
+    padding: 8px 14px; font-size: 14px; color: var(--text-muted);
+    border-radius: 8px; transition: color .15s, background .15s;
+  }
+  .nav-links a:hover { color: var(--text); background: var(--accent-soft); }
+  .nav-cta {
+    margin-left: 8px; padding: 8px 18px; font-size: 14px; font-weight: 600;
+    background: linear-gradient(135deg, var(--accent), #2563eb);
+    border-radius: 8px; transition: transform .15s, box-shadow .15s;
+  }
+  .nav-cta:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(59,130,246,.35); }
+  .menu-btn { display: none; margin-left: auto; background: none; border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 6px 12px; font-size: 16px; cursor: pointer; }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    padding: 110px 0 90px;
+    background:
+      radial-gradient(700px 380px at 75% -10%, rgba(59, 130, 246, 0.22), transparent 60%),
+      radial-gradient(560px 340px at 12% 10%, rgba(34, 211, 238, 0.12), transparent 60%),
+      var(--bg);
+    text-align: center;
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--accent-2);
+    border: 1px solid rgba(34, 211, 238, 0.35);
+    background: rgba(34, 211, 238, 0.08);
+    padding: 6px 16px; border-radius: 999px; margin-bottom: 28px;
+  }
+  .hero h1 {
+    font-size: clamp(32px, 5.4vw, 56px); font-weight: 800; letter-spacing: -0.02em;
+    line-height: 1.18; margin-bottom: 20px;
+  }
+  .hero h1 .grad {
+    background: linear-gradient(120deg, #60a5fa, var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero p.sub { font-size: 18px; color: var(--text-muted); max-width: 680px; margin: 0 auto 40px; }
+  .hero-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    padding: 13px 30px; border-radius: 10px; font-size: 15px; font-weight: 600;
+    transition: transform .15s, box-shadow .15s, background .15s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), #2563eb); color: #fff; }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(59,130,246,.4); }
+  .btn-ghost { border: 1px solid var(--border); color: var(--text); background: rgba(255,255,255,0.03); }
+  .btn-ghost:hover { background: var(--accent-soft); transform: translateY(-2px); }
+
+  /* ---------- 数据条 ---------- */
+  .stats { padding: 0 0 8px; }
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    margin-top: -56px; position: relative; z-index: 2;
+  }
+  .stat-card {
+    background: linear-gradient(180deg, var(--surface-2), var(--surface));
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 26px 22px; text-align: center;
+    box-shadow: 0 14px 34px rgba(2, 8, 23, 0.5);
+  }
+  .stat-num {
+    font-size: 38px; font-weight: 800; line-height: 1.1;
+    background: linear-gradient(120deg, #93c5fd, var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .stat-label { font-size: 14px; color: var(--text-muted); margin-top: 6px; }
+
+  /* ---------- 功能卡片 ---------- */
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 26px 22px;
+    transition: transform .18s, border-color .18s, box-shadow .18s;
+  }
+  .card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(59, 130, 246, 0.45);
+    box-shadow: 0 16px 36px rgba(2, 8, 23, 0.55);
+  }
+  .card .icon {
+    width: 46px; height: 46px; border-radius: 12px; font-size: 22px;
+    display: grid; place-items: center; margin-bottom: 16px;
+    background: var(--accent-soft); border: 1px solid rgba(59,130,246,.25);
+  }
+  .card h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+  .card p { font-size: 13.5px; color: var(--text-muted); }
+  .card .tags { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .card .tags span {
+    font-size: 11.5px; color: var(--accent-2);
+    border: 1px solid rgba(34,211,238,.3); border-radius: 6px; padding: 1px 8px;
+  }
+
+  /* ---------- 工作流程 ---------- */
+  .workflow { background: var(--bg-2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .flow { display: flex; align-items: stretch; flex-wrap: wrap; gap: 0; }
+  .flow-step {
+    flex: 1 1 0; min-width: 130px; position: relative;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px 14px; text-align: center;
+  }
+  .flow-step .num {
+    width: 26px; height: 26px; border-radius: 50%; margin: 0 auto 10px;
+    display: grid; place-items: center; font-size: 13px; font-weight: 700;
+    background: var(--accent-soft); color: var(--accent-2); border: 1px solid rgba(34,211,238,.3);
+  }
+  .flow-step h4 { font-size: 14.5px; font-weight: 700; margin-bottom: 4px; }
+  .flow-step p { font-size: 12px; color: var(--text-muted); }
+  .flow-arrow {
+    align-self: center; padding: 0 8px; color: var(--accent);
+    font-size: 18px; flex: 0 0 auto;
+  }
+  .flow-branch { display: flex; gap: 12px; margin-top: 18px; }
+  .branch-card {
+    flex: 1; border-radius: 12px; padding: 16px 18px; font-size: 13.5px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .branch-auto { border: 1px solid rgba(34,197,94,.4); background: rgba(34,197,94,.08); }
+  .branch-manual { border: 1px solid rgba(245,158,11,.45); background: rgba(245,158,11,.09); }
+  .branch-card .dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+  .branch-auto .dot { background: var(--green); box-shadow: 0 0 10px rgba(34,197,94,.8); }
+  .branch-manual .dot { background: var(--orange); box-shadow: 0 0 10px rgba(245,158,11,.8); }
+  .hitl-tag {
+    display: inline-block; margin-left: 6px; font-size: 11px; font-weight: 700;
+    color: #fbbf24; border: 1px solid rgba(251,191,36,.5); border-radius: 6px; padding: 1px 8px;
+    vertical-align: middle;
+  }
+  .flow-split {
+    flex: 1 1 100%; display: grid; grid-template-columns: 1fr; gap: 0; margin: 0;
+  }
+  .flow-tail { display: flex; align-items: stretch; flex-wrap: wrap; gap: 0; margin-top: 18px; }
+
+  /* ---------- 界面预览（Fluent 风格 mock） ---------- */
+  .mock-shell {
+    border-radius: 16px; overflow: hidden;
+    border: 1px solid rgba(148,178,255,.22);
+    box-shadow: 0 30px 80px rgba(2, 8, 23, 0.7), 0 0 0 1px rgba(0,0,0,.3);
+    background: #f3f2f1;
+    color: #323130;
+    font-size: 13px;
+  }
+  .mock-titlebar {
+    background: #1b1a19; color: #c8c6c4; display: flex; align-items: center;
+    gap: 8px; padding: 9px 14px; font-size: 12px;
+  }
+  .mock-titlebar .tb-dot { width: 11px; height: 11px; border-radius: 50%; }
+  .tb-dot.r { background: #ff5f57; } .tb-dot.y { background: #febc2e; } .tb-dot.g { background: #28c840; }
+  .mock-titlebar .tb-title { margin-left: 10px; }
+  .mock-body { display: flex; min-height: 520px; }
+  .mock-side {
+    width: 208px; flex: 0 0 auto; background: #faf9f8; border-right: 1px solid #edebe9;
+    padding: 14px 0; display: flex; flex-direction: column;
+  }
+  .mock-side .ws {
+    margin: 0 12px 14px; padding: 8px 10px; border: 1px solid #d2d0ce; border-radius: 4px;
+    background: #fff; font-size: 12px; display: flex; justify-content: space-between; align-items: center; color: #605e5c;
+  }
+  .mock-side .ws b { color: #323130; }
+  .mock-nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 16px;
+    font-size: 13px; color: #605e5c; border-left: 3px solid transparent; cursor: pointer;
+  }
+  .mock-nav-item.active {
+    background: #eff6fc; color: #0078d4; border-left-color: #0078d4; font-weight: 600;
+  }
+  .mock-side .spacer { flex: 1; }
+  .mock-side .user {
+    margin: 10px 12px 0; padding-top: 12px; border-top: 1px solid #edebe9;
+    display: flex; align-items: center; gap: 9px; font-size: 12px; color: #605e5c;
+  }
+  .avatar {
+    width: 28px; height: 28px; border-radius: 50%; background: var(--fluent);
+    color: #fff; display: grid; place-items: center; font-size: 11px; font-weight: 700;
+  }
+  .mock-main { flex: 1; padding: 18px 22px; background: #fff; min-width: 0; }
+  .mock-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .mock-header h3 { font-size: 19px; font-weight: 600; color: #201f1e; }
+  .mock-header .desc { font-size: 12px; color: #8a8886; }
+  .mock-btns { display: flex; gap: 8px; }
+  .fbtn {
+    font-size: 12.5px; padding: 6px 14px; border-radius: 2px; border: 1px solid #8a8886;
+    background: #fff; color: #323130; cursor: default;
+  }
+  .fbtn.primary { background: var(--fluent); border-color: var(--fluent); color: #fff; }
+  .mock-tabs { display: flex; gap: 22px; border-bottom: 1px solid #edebe9; margin: 12px 0 14px; }
+  .mock-tab {
+    padding: 8px 2px; font-size: 13px; color: #605e5c; cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; border-top: none;
+    border-left: none; border-right: none; font-family: inherit;
+  }
+  .mock-tab.active { color: var(--fluent); border-bottom-color: var(--fluent); font-weight: 600; }
+  .mock-tab .cnt {
+    font-size: 11px; background: #eff6fc; color: var(--fluent); border-radius: 10px;
+    padding: 0 7px; margin-left: 5px; font-weight: 600;
+  }
+
+  /* 信号列表 */
+  .sig-list { display: flex; flex-direction: column; gap: 8px; }
+  .sig-row {
+    display: flex; align-items: center; gap: 14px; padding: 11px 14px;
+    border: 1px solid #edebe9; border-radius: 4px; background: #fff;
+    transition: box-shadow .15s;
+  }
+  .sig-row:hover { box-shadow: 0 2px 8px rgba(0,0,0,.09); }
+  .sig-check { width: 14px; height: 14px; border: 1px solid #a19f9d; border-radius: 2px; flex: 0 0 auto; }
+  .sig-info { flex: 1; min-width: 0; }
+  .sig-title { font-size: 13.5px; font-weight: 600; color: #201f1e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sig-meta { font-size: 11.5px; color: #8a8886; margin-top: 2px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .sig-src {
+    font-size: 11px; padding: 1px 8px; border-radius: 3px; background: #f3f2f1;
+    border: 1px solid #e1dfdd; color: #605e5c; flex: 0 0 auto;
+  }
+  .sig-score { flex: 0 0 120px; }
+  .sig-score .bar { height: 6px; border-radius: 3px; background: #edebe9; overflow: hidden; margin-top: 5px; }
+  .sig-score .bar i { display: block; height: 100%; border-radius: 3px; }
+  .sig-score .val { font-size: 12.5px; font-weight: 700; color: #201f1e; }
+  .sig-badge {
+    flex: 0 0 auto; font-size: 11.5px; color: #fff; border-radius: 10px; padding: 2px 11px;
+  }
+  .b-pending { background: #ca5010; }
+  .b-approved { background: #107c10; }
+  .b-rejected { background: #a80000; }
+  .b-flagged { background: #5c2d91; }
+  .sig-actions { flex: 0 0 auto; display: flex; gap: 6px; }
+  .sig-actions .fbtn { padding: 4px 10px; font-size: 11.5px; }
+  .fbtn.ok { border-color: #107c10; color: #107c10; }
+  .fbtn.no { border-color: #a80000; color: #a80000; }
+
+  /* 详情面板（评分维度） */
+  .sig-detail {
+    margin-top: 14px; border: 1px solid #edebe9; border-radius: 4px; background: #faf9f8;
+    padding: 14px 16px;
+  }
+  .sig-detail h5 { font-size: 13px; font-weight: 600; color: #201f1e; margin-bottom: 10px; display: flex; justify-content: space-between; }
+  .sig-detail h5 .ai { color: var(--fluent); font-weight: 600; font-size: 12px; }
+  .dim-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+  .dim-row .lbl { width: 92px; flex: 0 0 auto; font-size: 12px; color: #605e5c; }
+  .dim-row .bar { flex: 1; height: 7px; background: #edebe9; border-radius: 4px; overflow: hidden; }
+  .dim-row .bar i { display: block; height: 100%; background: linear-gradient(90deg, #0078d4, #50a8e8); border-radius: 4px; }
+  .dim-row .v { width: 34px; text-align: right; font-size: 12px; font-weight: 600; color: #323130; }
+
+  /* 趋势图 */
+  .chart-card { border: 1px solid #edebe9; border-radius: 4px; padding: 16px 18px; background: #fff; }
+  .chart-card .chart-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .chart-card h5 { font-size: 14px; font-weight: 600; color: #201f1e; }
+  .chart-legend { display: flex; gap: 16px; font-size: 12px; color: #605e5c; flex-wrap: wrap; }
+  .chart-legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+  .chart-svg-wrap { margin-top: 8px; }
+  .chart-svg-wrap svg { width: 100%; height: auto; display: block; }
+  .chart-note { font-size: 11.5px; color: #8a8886; margin-top: 8px; }
+  .evidence-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .evidence-chips span {
+    font-size: 11.5px; background: #eff6fc; color: #0078d4; border: 1px solid #c7e0f4;
+    padding: 3px 10px; border-radius: 3px;
+  }
+  .mock-pane { display: none; }
+  .mock-pane.show { display: block; }
+
+  /* ---------- 技术架构 ---------- */
+  .arch { background: var(--bg-2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .badge-cloud { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 28px; }
+  .tech-badge {
+    font-size: 13.5px; font-weight: 600; padding: 8px 16px; border-radius: 999px;
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: border-color .15s, transform .15s;
+  }
+  .tech-badge:hover { border-color: rgba(59,130,246,.5); transform: translateY(-2px); }
+  .tech-badge i { width: 8px; height: 8px; border-radius: 50%; }
+  .arch-note {
+    background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent);
+    border-radius: 10px; padding: 18px 22px; color: var(--text-muted); font-size: 14.5px;
+  }
+  .arch-note b { color: var(--text); }
+
+  /* ---------- 快速开始 ---------- */
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-bottom: 30px; }
+  .step-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden; display: flex; flex-direction: column;
+  }
+  .step-head {
+    padding: 16px 20px 12px; display: flex; align-items: center; gap: 12px;
+  }
+  .step-head .n {
+    width: 30px; height: 30px; border-radius: 50%; flex: 0 0 auto;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: grid; place-items: center; font-weight: 800; font-size: 14px; color: #04122b;
+  }
+  .step-head h4 { font-size: 15px; font-weight: 700; }
+  .step-card pre {
+    flex: 1; margin: 0 14px 14px; padding: 14px 16px; overflow-x: auto;
+    background: #060c18; border: 1px solid var(--border); border-radius: 10px;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: #c9d7f2;
+  }
+  .step-card pre .cmt { color: #5b6b8c; }
+  .step-card pre .cmd { color: #7dd3fc; }
+  .github-link { text-align: center; }
+
+  /* ---------- 页脚 ---------- */
+  footer {
+    border-top: 1px solid var(--border); padding: 34px 0;
+    color: var(--text-muted); font-size: 13.5px;
+  }
+  .foot-inner { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+
+  /* ---------- 响应式 ---------- */
+  @media (max-width: 980px) {
+    .cards { grid-template-columns: repeat(2, 1fr); }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .steps { grid-template-columns: 1fr; }
+    .mock-body { flex-direction: column; }
+    .mock-side { width: 100%; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 8px 6px; }
+    .mock-side .ws { margin: 4px 6px; }
+    .mock-side .spacer, .mock-side .user { display: none; }
+    .mock-nav-item { border-left: none; border-bottom: 2px solid transparent; padding: 6px 10px; }
+    .mock-nav-item.active { border-bottom-color: #0078d4; }
+  }
+  @media (max-width: 760px) {
+    section { padding: 64px 0; }
+    .nav-links, .nav-cta { display: none; }
+    .menu-btn { display: block; }
+    .nav.open .nav-links {
+      display: flex; position: absolute; top: 64px; left: 0; right: 0;
+      flex-direction: column; background: var(--bg-2); border-bottom: 1px solid var(--border);
+      padding: 10px 16px 16px; gap: 2px;
+    }
+    .cards { grid-template-columns: 1fr; }
+    .flow { flex-direction: column; }
+    .flow-arrow { transform: rotate(90deg); padding: 6px 0; align-self: center; }
+    .flow-branch { flex-direction: column; }
+    .flow-tail { flex-direction: column; }
+    .sig-row { flex-wrap: wrap; }
+    .sig-info { flex: 1 1 68%; }
+    .sig-src { display: none; }
+    .sig-score { flex-basis: 90px; }
+    .sig-actions { display: none; }
+    h2.section-title { font-size: 27px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 内联 SVG 图标库（零外部依赖） -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="i-radar" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/><path d="M12 12 19 5"/><path d="M16.1 7.9a6 6 0 1 0 2.7 5.3"/><path d="M19 5a10 10 0 0 1 3 7"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.7 2.6 4 5.6 4 9s-1.3 6.4-4 9c-2.7-2.6-4-5.6-4-9s1.3-6.4 4-9z"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9.5" y="9.5" width="5" height="5"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></symbol>
+  <symbol id="i-review" viewBox="0 0 24 24"><circle cx="10" cy="7" r="4"/><path d="M3 21v-1a7 7 0 0 1 11.5-5.3"/><path d="m14.5 18.5 2.5 2.5 4.5-4.5"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m6 15 4-5 3.5 3L19 7"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v4h4"/><path d="M9 12h6M9 16h6"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3z"/><path d="m8.5 11.5 2.5 2.5 4.5-4.5"/></symbol>
+  <symbol id="i-building" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M8 7.5h2M14 7.5h2M8 12h2M14 12h2M8 16.5h2M14 16.5h2"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5 5l2.1 2.1M16.9 16.9 19 19M19 5l-2.1 2.1M7.1 16.9 5 19"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.6 1.6"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.6-1.6"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 2.5 2.9 6.2 6.6.8-4.9 4.6 1.3 6.6-5.9-3.3-5.9 3.3 1.3-6.6L2.5 9.5l6.6-.8z"/></symbol>
+</svg>
+
+<!-- ================= 导航栏 ================= -->
+<header class="nav" id="nav">
+  <div class="nav-inner">
+    <a class="brand" href="#top">
+      <span class="brand-mark"><svg class="ic"><use href="#i-radar"/></svg></span>
+      <span>Trend Scout <small>Enterprise</small></span>
+    </a>
+    <button class="menu-btn" id="menuBtn" aria-label="菜单">☰</button>
+    <nav class="nav-links">
+      <a href="#features">功能</a>
+      <a href="#workflow">工作流</a>
+      <a href="#preview">界面</a>
+      <a href="#architecture">架构</a>
+      <a href="#quickstart">快速开始</a>
+    </nav>
+    <a class="nav-cta" href="#quickstart">开始使用</a>
+  </div>
+</header>
+
+<!-- ================= Hero ================= -->
+<section class="hero" id="top">
+  <div class="wrap">
+    <span class="hero-badge"><svg class="ic fill"><use href="#i-bolt"/></svg> v1.0 正式发布 · 自托管 · 开源 MIT</span>
+    <h1>AI 驱动的<br><span class="grad">企业趋势侦察自动化平台</span></h1>
+    <p class="sub">从数据采集到决策报告，AI 与人类专家协同工作。Trend Scout Enterprise 持续扫描多源信息，用可解释的 AI 评分筛选高价值信号，让战略与创新团队始终领先市场一步。</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="#features">查看核心功能</a>
+      <a class="btn btn-ghost" href="#quickstart"><svg class="ic fill"><use href="#i-bolt"/></svg> 五分钟快速开始</a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 核心数据条 ================= -->
+<section class="stats">
+  <div class="wrap">
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-num">5</div><div class="stat-label">种数据源类型</div></div>
+      <div class="stat-card"><div class="stat-num">5</div><div class="stat-label">维 AI 评分体系</div></div>
+      <div class="stat-card"><div class="stat-num">3</div><div class="stat-label">种报告输出格式</div></div>
+      <div class="stat-card"><div class="stat-num">221+</div><div class="stat-label">后端自动化测试</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 功能卡片 ================= -->
+<section id="features">
+  <div class="wrap">
+    <span class="section-tag">CORE FEATURES</span>
+    <h2 class="section-title">覆盖趋势侦察全流程的八大能力</h2>
+    <p class="section-sub">从信息获取到洞察交付，每个环节都为业务团队设计，同时满足企业 IT 对安全与合规的要求。</p>
+    <div class="cards">
+      <div class="card">
+        <div class="icon"><svg class="ic"><use href="#i-globe"/></svg></div>
+        <h3>多源数据采集</h3>
+        <p>内置五种扫描器，定时拉取行业资讯、学术论文与内部知识库，信息渠道一处统一管理。</p>
+        <div class="tags"><span>RSS</span><span>arXiv</span><span>Web Search</span><span>SharePoint</span><span>Custom API</span></div>
+      </div>
+      <div class="card">
+        <div class="icon"><svg class="ic"><use href="#i-cpu"/></svg></div>
+        <h3>AI 智能评分</h3>
+        <p>5 个可配置维度逐条打分并给出理由，置信度阈值自动分流，异常检测识别突变信号。</p>
+        <div class="tags"><span>可配置权重</span><span>置信度分流</span><span>异常检测</span></div>
+      </div>
+      <div class="card">
+        <div class="icon"><svg class="ic"><use href="#i-review"/></svg></div>
+        <h3>人机协同审核</h3>
+        <p>低置信度信号进入 Signal Review 审核队列，支持批量通过与拒绝，专家反馈回流持续校准 AI。</p>
+        <div class="tags"><span>审核队列</span><span>批量操作</span><span>反馈回路</span></div>
+      </div>
+      <div class="card">
+        <div class="icon"><svg class="ic"><use href="#i-search"/></svg></div>
+        <h3>语义检索</h3>
+        <p>基于向量 embedding 的语义搜索，跨措辞找到相关内容，一键发现相似信号、去重降噪。</p>
+        <div class="tags"><span>向量 Embedding</span><span>相似信号</span><span>语义搜索</span></div>
+      </div>
+      <div class="card">
+        <div class="icon"><svg class="ic"><use href="#i-chart"/></svg></div>
+        <h3>趋势追踪</h3>
+        <p>按类别与主题聚合历史评分曲线，每个数据点都可回溯到原文与 LLM 证据，TrendAnalystAgent 输出深度洞察。</p>
+        <div class="tags"><span>证据可追溯</span><span>AI 深度洞察</span></div>
+      </div>
+      <div class="card">
+        <div class="icon"><svg class="ic"><use href="#i-doc"/></svg></div>
+        <h3>一键报告</h3>
+        <p>一键生成面向管理层的成品报告，LLM 自动撰写摘要与要点，直接用于周会与决策汇报。</p>
+        <div class="tags"><span>PDF</span><span>PPTX</span><span>Card</span><span>LLM 摘要</span></div>
+      </div>
+      <div class="card">
+        <div class="icon"><svg class="ic"><use href="#i-shield"/></svg></div>
+        <h3>企业级安全</h3>
+        <p>bcrypt 密码哈希、完整审计日志、接口限速、JWT RS256 签名与全套安全响应头，开箱即合规。</p>
+        <div class="tags"><span>审计日志</span><span>加密存储</span><span>角色权限</span><span>SSO</span></div>
+      </div>
+      <div class="card">
+        <div class="icon"><svg class="ic"><use href="#i-building"/></svg></div>
+        <h3>SharePoint 集成</h3>
+        <p>随附 SPFx Web Part，把趋势仪表盘嵌入企业 SharePoint 页面，只读嵌入令牌保障最小权限。</p>
+        <div class="tags"><span>SPFx 嵌入</span><span>只读令牌</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 工作流程 ================= -->
+<section class="workflow" id="workflow">
+  <div class="wrap">
+    <span class="section-tag">WORKFLOW</span>
+    <h2 class="section-title">自动化流水线，关键节点保留人的判断</h2>
+    <p class="section-sub">信号按 AI 置信度自动分流：高置信度直接通过，存疑信号交由领域专家审核 —— Human-in-the-Loop 让效率与质量兼得。</p>
+
+    <div class="flow">
+      <div class="flow-step"><div class="num">1</div><h4>配置数据源</h4><p>RSS / arXiv / Web / SharePoint / API</p></div>
+      <div class="flow-arrow">➜</div>
+      <div class="flow-step"><div class="num">2</div><h4>定时扫描</h4><p>Celery 调度自动拉取新内容</p></div>
+      <div class="flow-arrow">➜</div>
+      <div class="flow-step"><div class="num">3</div><h4>AI 评分</h4><p>5 维度打分 + 异常检测</p></div>
+      <div class="flow-arrow">➜</div>
+      <div class="flow-step"><div class="num">4</div><h4>置信度分流</h4><p>按阈值自动路由信号</p></div>
+    </div>
+
+    <div class="flow-branch">
+      <div class="branch-card branch-auto">
+        <span class="dot"></span>
+        <span><b>高置信度</b>（≥ 0.7）→ 自动通过，直接进入趋势聚合</span>
+      </div>
+      <div class="branch-card branch-manual">
+        <span class="dot"></span>
+        <span><b>低置信度</b> → 进入人工审核队列<span class="hitl-tag">Human-in-the-Loop</span>专家裁决与反馈回流</span>
+      </div>
+    </div>
+
+    <div class="flow-tail">
+      <div class="flow-step"><div class="num">5</div><h4>趋势聚合</h4><p>按日 / 周 / 月汇总主题热度</p></div>
+      <div class="flow-arrow">➜</div>
+      <div class="flow-step"><div class="num">6</div><h4>报告生成</h4><p>PDF / PPTX / Card + LLM 摘要</p></div>
+      <div class="flow-arrow">➜</div>
+      <div class="flow-step"><div class="num">7</div><h4>通知推送</h4><p>邮件 / Teams 触达相关团队</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 界面预览 ================= -->
+<section id="preview">
+  <div class="wrap">
+    <span class="section-tag">PRODUCT TOUR</span>
+    <h2 class="section-title">界面预览</h2>
+    <p class="section-sub">基于 Fluent UI 的清爽工作台：左侧导航、信号审核队列与趋势分析一目了然。点击下方标签切换视图。</p>
+
+    <div class="mock-shell">
+      <div class="mock-titlebar">
+        <span class="tb-dot r"></span><span class="tb-dot y"></span><span class="tb-dot g"></span>
+        <span class="tb-title">Trend Scout Enterprise — 工作台</span>
+      </div>
+      <div class="mock-body">
+        <!-- 左侧导航 -->
+        <aside class="mock-side">
+          <div class="ws"><b>创新中心</b><span>▾</span></div>
+          <div class="mock-nav-item active" data-pane="signals"><svg class="ic"><use href="#i-radar"/></svg>信号</div>
+          <div class="mock-nav-item" data-pane="trends"><svg class="ic"><use href="#i-chart"/></svg>趋势</div>
+          <div class="mock-nav-item" data-pane="signals"><svg class="ic"><use href="#i-globe"/></svg>数据源</div>
+          <div class="mock-nav-item" data-pane="signals"><svg class="ic"><use href="#i-bolt"/></svg>扫描任务</div>
+          <div class="mock-nav-item" data-pane="signals"><svg class="ic"><use href="#i-doc"/></svg>报告</div>
+          <div class="mock-nav-item" data-pane="signals"><svg class="ic"><use href="#i-gear"/></svg>设置</div>
+          <div class="spacer"></div>
+          <div class="user"><span class="avatar">张</span><span>张研究员<br>战略与创新部</span></div>
+        </aside>
+
+        <!-- 主区域 -->
+        <main class="mock-main">
+          <div class="mock-header">
+            <div>
+              <h3 id="mockTitle">信号审核队列</h3>
+              <div class="desc" id="mockDesc">AI 已完成评分与分流，待您裁决的信号如下</div>
+            </div>
+            <div class="mock-btns">
+              <button class="fbtn primary">批量通过 (3)</button>
+              <button class="fbtn">批量拒绝</button>
+            </div>
+          </div>
+
+          <div class="mock-tabs">
+            <button class="mock-tab active" data-pane="signals">待审核<span class="cnt">4</span></button>
+            <button class="mock-tab" data-pane="trends">趋势分析</button>
+          </div>
+
+          <!-- 面板一：信号列表 -->
+          <div class="mock-pane show" id="pane-signals">
+            <div class="sig-list">
+              <div class="sig-row">
+                <span class="sig-check"></span>
+                <div class="sig-info">
+                  <div class="sig-title">固态电池量产工艺取得突破，能量密度提升 40%</div>
+                  <div class="sig-meta"><span>今天 09:24</span><span>相关领域：新能源 / 汽车制造</span></div>
+                </div>
+                <span class="sig-src">RSS · 36氪</span>
+                <div class="sig-score">
+                  <span class="val">0.62</span>
+                  <div class="bar"><i style="width:62%;background:#f59e0b"></i></div>
+                </div>
+                <span class="sig-badge b-pending">待审核</span>
+                <div class="sig-actions">
+                  <button class="fbtn ok">通过</button>
+                  <button class="fbtn no">拒绝</button>
+                </div>
+              </div>
+              <div class="sig-row">
+                <span class="sig-check"></span>
+                <div class="sig-info">
+                  <div class="sig-title">Small Language Models for Enterprise RAG: A Survey</div>
+                  <div class="sig-meta"><span>今天 08:51</span><span>相关领域：人工智能 / 企业应用</span></div>
+                </div>
+                <span class="sig-src">arXiv · cs.CL</span>
+                <div class="sig-score">
+                  <span class="val">0.88</span>
+                  <div class="bar"><i style="width:88%;background:#107c10"></i></div>
+                </div>
+                <span class="sig-badge b-approved">已通过</span>
+                <div class="sig-actions"></div>
+              </div>
+              <div class="sig-row">
+                <span class="sig-check"></span>
+                <div class="sig-info">
+                  <div class="sig-title">欧盟发布 AI 合规新指南，2027 年起强制实施</div>
+                  <div class="sig-meta"><span>昨天 17:03</span><span>相关领域：政策法规</span><span style="color:#ca5010">⚠ 异常检测：热度激增 +260%</span></div>
+                </div>
+                <span class="sig-src">Web Search</span>
+                <div class="sig-score">
+                  <span class="val">0.55</span>
+                  <div class="bar"><i style="width:55%;background:#f59e0b"></i></div>
+                </div>
+                <span class="sig-badge b-pending">待审核</span>
+                <div class="sig-actions">
+                  <button class="fbtn ok">通过</button>
+                  <button class="fbtn no">拒绝</button>
+                </div>
+              </div>
+              <div class="sig-row">
+                <span class="sig-check"></span>
+                <div class="sig-info">
+                  <div class="sig-title">竞品 Q2 发布会要点整理（内部知识库同步）</div>
+                  <div class="sig-meta"><span>昨天 14:22</span><span>相关领域：竞争情报</span></div>
+                </div>
+                <span class="sig-src">SharePoint</span>
+                <div class="sig-score">
+                  <span class="val">0.47</span>
+                  <div class="bar"><i style="width:47%;background:#f59e0b"></i></div>
+                </div>
+                <span class="sig-badge b-flagged">已标记</span>
+                <div class="sig-actions">
+                  <button class="fbtn ok">通过</button>
+                  <button class="fbtn no">拒绝</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 评分维度明细 -->
+            <div class="sig-detail">
+              <h5><span>AI 评分明细 · “Small Language Models for Enterprise RAG”</span><span class="ai">综合 0.88 · 置信度 高</span></h5>
+              <div class="dim-row"><span class="lbl">信号强度</span><div class="bar"><i style="width:90%"></i></div><span class="v">0.90</span></div>
+              <div class="dim-row"><span class="lbl">跨域影响力</span><div class="bar"><i style="width:85%"></i></div><span class="v">0.85</span></div>
+              <div class="dim-row"><span class="lbl">投资热度</span><div class="bar"><i style="width:92%"></i></div><span class="v">0.92</span></div>
+              <div class="dim-row"><span class="lbl">技术可行性</span><div class="bar"><i style="width:88%"></i></div><span class="v">0.88</span></div>
+              <div class="dim-row"><span class="lbl">战略契合度</span><div class="bar"><i style="width:84%"></i></div><span class="v">0.84</span></div>
+            </div>
+          </div>
+
+          <!-- 面板二：趋势图 -->
+          <div class="mock-pane" id="pane-trends">
+            <div class="chart-card">
+              <div class="chart-head">
+                <h5>主题趋势 · 近 8 周（周粒度）</h5>
+                <div class="chart-legend">
+                  <span><i style="background:#0078d4"></i>生成式 AI</span>
+                  <span><i style="background:#107c10"></i>新能源材料</span>
+                  <span><i style="background:#d83b01"></i>具身智能</span>
+                </div>
+              </div>
+              <div class="chart-svg-wrap">
+                <svg viewBox="0 0 720 260" role="img" aria-label="趋势折线图">
+                  <defs>
+                    <linearGradient id="areaBlue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#0078d4" stop-opacity="0.18"/>
+                      <stop offset="100%" stop-color="#0078d4" stop-opacity="0"/>
+                    </linearGradient>
+                  </defs>
+                  <!-- 网格 -->
+                  <g stroke="#edebe9" stroke-width="1">
+                    <line x1="46" y1="20"  x2="700" y2="20"/>
+                    <line x1="46" y1="70"  x2="700" y2="70"/>
+                    <line x1="46" y1="120" x2="700" y2="120"/>
+                    <line x1="46" y1="170" x2="700" y2="170"/>
+                    <line x1="46" y1="220" x2="700" y2="220"/>
+                  </g>
+                  <!-- Y 轴 -->
+                  <g font-size="10" fill="#8a8886" text-anchor="end" font-family="Segoe UI, sans-serif">
+                    <text x="40" y="24">1.0</text>
+                    <text x="40" y="74">0.75</text>
+                    <text x="40" y="124">0.5</text>
+                    <text x="40" y="174">0.25</text>
+                    <text x="40" y="224">0</text>
+                  </g>
+                  <!-- X 轴 -->
+                  <g font-size="10" fill="#8a8886" text-anchor="middle" font-family="Segoe UI, sans-serif">
+                    <text x="60"  y="242">W23</text>
+                    <text x="150" y="242">W24</text>
+                    <text x="240" y="242">W25</text>
+                    <text x="330" y="242">W26</text>
+                    <text x="420" y="242">W27</text>
+                    <text x="510" y="242">W28</text>
+                    <text x="600" y="242">W29</text>
+                    <text x="690" y="242">W30</text>
+                  </g>
+                  <!-- 面积（生成式 AI） -->
+                  <path d="M60,110 L150,100 L240,86 L330,74 L420,60 L510,44 L600,36 L690,30 L690,220 L60,220 Z" fill="url(#areaBlue)"/>
+                  <!-- 折线 -->
+                  <polyline points="60,110 150,100 240,86 330,74 420,60 510,44 600,36 690,30"
+                            fill="none" stroke="#0078d4" stroke-width="2.5" stroke-linejoin="round"/>
+                  <polyline points="60,150 150,142 240,146 330,132 420,136 510,120 600,112 690,104"
+                            fill="none" stroke="#107c10" stroke-width="2.5" stroke-linejoin="round"/>
+                  <polyline points="60,190 150,196 240,182 330,176 420,160 510,150 600,138 690,120"
+                            fill="none" stroke="#d83b01" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="1 0"/>
+                  <!-- 数据点 -->
+                  <g>
+                    <circle cx="420" cy="60" r="4.5" fill="#fff" stroke="#0078d4" stroke-width="2.5"/>
+                    <circle cx="510" cy="44" r="4.5" fill="#fff" stroke="#0078d4" stroke-width="2.5"/>
+                    <circle cx="600" cy="36" r="5.5" fill="#0078d4" stroke="#fff" stroke-width="2"/>
+                    <circle cx="600" cy="112" r="4.5" fill="#fff" stroke="#107c10" stroke-width="2.5"/>
+                    <circle cx="690" cy="120" r="4.5" fill="#fff" stroke="#d83b01" stroke-width="2.5"/>
+                  </g>
+                  <!-- 悬浮提示框（静态示意） -->
+                  <g>
+                    <rect x="540" y="52" width="132" height="56" rx="4" fill="#ffffff" stroke="#c8c6c4"/>
+                    <text x="552" y="70" font-size="10.5" fill="#201f1e" font-weight="600" font-family="Segoe UI, sans-serif">W29 · 生成式 AI</text>
+                    <text x="552" y="86" font-size="10.5" fill="#605e5c" font-family="Segoe UI, sans-serif">平均分 0.91 · 42 条证据</text>
+                    <text x="552" y="100" font-size="10.5" fill="#0078d4" font-family="Segoe UI, sans-serif">点击查看证据追溯 →</text>
+                  </g>
+                </svg>
+              </div>
+              <div class="chart-note">点击曲线上任意数据点，可回溯构成该趋势点的原始信号与 LLM 评分理由。</div>
+              <div class="evidence-chips">
+                <span><svg class="ic"><use href="#i-link"/></svg>arXiv: SLM for RAG (0.88)</span>
+                <span><svg class="ic"><use href="#i-link"/></svg>微软研究院博客 (0.85)</span>
+                <span><svg class="ic"><use href="#i-link"/></svg>行业融资快讯 (0.83)</span>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 技术架构 ================= -->
+<section class="arch" id="architecture">
+  <div class="wrap">
+    <span class="section-tag">ARCHITECTURE</span>
+    <h2 class="section-title">成熟可靠的技术栈</h2>
+    <p class="section-sub">每一层都选择经过生产验证的主流技术，自托管部署，数据完全掌握在自己手中。</p>
+    <div class="badge-cloud">
+      <span class="tech-badge"><i style="background:#009688"></i>FastAPI</span>
+      <span class="tech-badge"><i style="background:#d83b01"></i>SQLAlchemy</span>
+      <span class="tech-badge"><i style="background:#336791"></i>PostgreSQL</span>
+      <span class="tech-badge"><i style="background:#37b24d"></i>Celery</span>
+      <span class="tech-badge"><i style="background:#dc382d"></i>Redis</span>
+      <span class="tech-badge"><i style="background:#a78bfa"></i>LangGraph</span>
+      <span class="tech-badge"><i style="background:#61dafb"></i>React 18</span>
+      <span class="tech-badge"><i style="background:#0078d4"></i>Fluent UI</span>
+      <span class="tech-badge"><i style="background:#0db7ed"></i>Docker</span>
+      <span class="tech-badge"><i style="background:#038387"></i>SPFx</span>
+    </div>
+    <div class="arch-note">
+      <b>架构说明：</b>React + Fluent UI 前端通过 REST API 与 FastAPI 后端通信；Celery + Redis 承担定时扫描与报告渲染等异步任务；LangGraph 编排 TrendAnalystAgent 的多步推理流程；PostgreSQL 存储业务数据与向量索引，SPFx Web Part 经由只读嵌入令牌将仪表盘安全嵌入 SharePoint。
+    </div>
+  </div>
+</section>
+
+<!-- ================= 快速开始 ================= -->
+<section id="quickstart">
+  <div class="wrap">
+    <span class="section-tag">GETTING STARTED</span>
+    <h2 class="section-title">三步完成部署</h2>
+    <p class="section-sub">一条 docker compose 命令拉起完整服务栈（API、Worker、调度器、Redis），五分钟内看到第一个趋势仪表盘。</p>
+    <div class="steps">
+      <div class="step-card">
+        <div class="step-head"><span class="n">1</span><h4>启动服务栈</h4></div>
+        <pre><span class="cmt"># 拉取预构建镜像并启动</span>
+<span class="cmd">cd</span> deployment
+GITHUB_REPOSITORY_OWNER=<span class="cmd">your-org</span> \
+  docker compose up -d</pre>
+      </div>
+      <div class="step-card">
+        <div class="step-head"><span class="n">2</span><h4>配置安全密钥</h4></div>
+        <pre><span class="cmt"># 生产环境必需，缺省将拒绝启动</span>
+<span class="cmd">export</span> SECRET_KEY=$(openssl rand -hex 32)</pre>
+      </div>
+      <div class="step-card">
+        <div class="step-head"><span class="n">3</span><h4>打开工作台</h4></div>
+        <pre><span class="cmt"># 浏览器访问，开始使用</span>
+http://localhost:5173
+
+<span class="cmt"># API 文档</span>
+http://localhost:8000/docs</pre>
+      </div>
+    </div>
+    <div class="github-link">
+      <a class="btn btn-ghost" href="https://github.com/neverlandps/trend-scout-enterprise" target="_blank" rel="noreferrer">
+        <svg class="ic fill"><use href="#i-star"/></svg> 在 GitHub 上查看源码
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 页脚 ================= -->
+<footer>
+  <div class="wrap foot-inner">
+    <span><svg class="ic" style="width:15px;height:15px;vertical-align:-2px"><use href="#i-radar"/></svg> <b>Trend Scout Enterprise</b> · AI 驱动的企业趋势侦察自动化平台</span>
+    <span>MIT License · 版本 v1.0 · 2026</span>
+  </div>
+</footer>
+
+<script>
+  // 移动端导航折叠
+  var nav = document.getElementById('nav');
+  var menuBtn = document.getElementById('menuBtn');
+  menuBtn.addEventListener('click', function () {
+    nav.classList.toggle('open');
+  });
+  nav.querySelectorAll('.nav-links a').forEach(function (a) {
+    a.addEventListener('click', function () { nav.classList.remove('open'); });
+  });
+
+  // 界面预览：标签 / 导航切换面板
+  var panes = {
+    signals: {
+      title: '信号审核队列',
+      desc: 'AI 已完成评分与分流，待您裁决的信号如下'
+    },
+    trends: {
+      title: '趋势分析',
+      desc: '按主题叠加历史评分曲线，点击数据点回溯证据'
+    }
+  };
+  function showPane(key) {
+    document.querySelectorAll('.mock-pane').forEach(function (p) {
+      p.classList.toggle('show', p.id === 'pane-' + key);
+    });
+    document.querySelectorAll('.mock-tab').forEach(function (t) {
+      t.classList.toggle('active', t.getAttribute('data-pane') === key);
+    });
+    document.querySelectorAll('.mock-nav-item').forEach(function (n) {
+      n.classList.toggle('active', n.getAttribute('data-pane') === key &&
+        (key === 'signals' ? n.textContent.indexOf('信号') > -1 : n.textContent.indexOf('趋势') > -1));
+    });
+    document.getElementById('mockTitle').textContent = panes[key].title;
+    document.getElementById('mockDesc').textContent = panes[key].desc;
+  }
+  document.querySelectorAll('.mock-tab, .mock-nav-item').forEach(function (el) {
+    el.addEventListener('click', function () {
+      showPane(el.getAttribute('data-pane'));
+    });
+  });
+</script>
+</body>
+</html>

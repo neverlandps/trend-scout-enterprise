@@ -25,6 +25,7 @@ import {
   DatePicker,
   MessageBar,
   MessageBarType,
+  Toggle,
   mergeStyleSets,
 } from '@fluentui/react'
 import {
@@ -60,6 +61,7 @@ export function TrendsPage() {
   const [selectedPoint, setSelectedPoint] = useState<TrendPoint | null>(null)
   const [evidence, setEvidence] = useState<TrendEvidence[]>([])
   const [evidenceOpen, setEvidenceOpen] = useState(false)
+  const [onlyApproved, setOnlyApproved] = useState(false)
 
   const granularityOptions: IDropdownOption[] = [
     { key: 'day', text: 'Day' },
@@ -114,6 +116,7 @@ export function TrendsPage() {
         start_date: startDate?.toISOString().split('T')[0],
         end_date: endDate?.toISOString().split('T')[0],
         granularity,
+        only_approved: onlyApproved,
       })
       await loadSeries()
     } catch (err: any) {
@@ -252,6 +255,12 @@ export function TrendsPage() {
           value={endDate || undefined}
           onSelectDate={setEndDate}
           placeholder="Select end date"
+        />
+        <Toggle
+          label="Only approved signals"
+          checked={onlyApproved}
+          onChange={(_, v) => setOnlyApproved(!!v)}
+          styles={{ root: { marginBottom: 4 } }}
         />
         <PrimaryButton text="Aggregate" onClick={runAggregation} disabled={loading} />
         <DefaultButton text="Load Series" onClick={loadSeries} disabled={loading} />

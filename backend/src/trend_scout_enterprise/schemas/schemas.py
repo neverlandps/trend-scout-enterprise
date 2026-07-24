@@ -223,6 +223,30 @@ class BulkReviewResult(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Review Assignments
+# ---------------------------------------------------------------------------
+
+
+class ReviewAssignmentCreate(BaseModel):
+    """Request schema to assign a reviewer to a category."""
+
+    category: str
+    reviewer_id: str
+
+
+class ReviewAssignmentOut(BaseModel):
+    """Response schema for a review assignment."""
+
+    id: str
+    workspace_id: str
+    category: str
+    reviewer_id: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ---------------------------------------------------------------------------
 # Vector Search (Semantic Retrieval)
 # ---------------------------------------------------------------------------
 

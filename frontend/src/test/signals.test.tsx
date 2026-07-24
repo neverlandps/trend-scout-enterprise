@@ -13,6 +13,7 @@ vi.mock('../services/api', async (importOriginal) => {
     reviewSignal: vi.fn(),
     bulkReviewSignals: vi.fn(),
     submitSignalFeedback: vi.fn(),
+    semanticSearchSignals: vi.fn(),
   }
 })
 
@@ -117,6 +118,40 @@ describe('SignalsPage', () => {
     fireEvent.click(screen.getByText('All'))
     await waitFor(() => {
       expect(api.fetchSignals).toHaveBeenCalledWith(undefined, undefined, 100, 0)
+    })
+  })
+
+  it('runs a semantic search and shows similarity scores', async () => {
+    vi.mocked(api.semanticSearchSignals).mockResolvedValue({
+      query: 'battery recycling',
+      results: [{ signal: pendingSignal, similarity: 0.8765 }],
+    })
+    render(<SignalsPage />)
+    const searchInput = screen.getByPlaceholderText(/Semantic search/)
+    fireEvent.change(searchInput, { target: { value: 'battery recycling' } })
+    fireEvent.keyDown(searchInput, { key: 'Enter', keyCode: 13, which: 13 })
+    await waitFor(() => {
+      expect(api.semanticSearchSignals).toHaveBeenCalledWith('battery recycling')
+      expect(screen.getByText('Semantic search results (1)')).toBeInTheDocument()
+      expect(screen.getByText('0.876')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('Clear search'))
+    await waitFor(() => {
+      expect(screen.getByText('Pending Review')).toBeInTheDocument()
+    })
+  })
+
+  it('shows an info message when semantic search is disabled (503)', async () => {
+    const err = new Error('Service Unavailable') as Error & { isAxiosError: boolean; response: { status: number } }
+    err.isAxiosError = true
+    err.response = { status: 503 }
+    vi.mocked(api.semanticSearchSignals).mockRejectedValue(err)
+    render(<SignalsPage />)
+    const searchInput = screen.getByPlaceholderText(/Semantic search/)
+    fireEvent.change(searchInput, { target: { value: 'anything' } })
+    fireEvent.keyDown(searchInput, { key: 'Enter', keyCode: 13, which: 13 })
+    await waitFor(() => {
+      expect(screen.getByText('Semantic search is not enabled on the backend.')).toBeInTheDocument()
     })
   })
 })
